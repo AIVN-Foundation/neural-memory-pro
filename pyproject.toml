@@ -11,8 +11,10 @@ license = { text = "Proprietary" }
 requires-python = ">=3.11"
 authors = [{ name = "AIVN Foundation", email = "claude@theio.vn" }]
 dependencies = [
-    "neural-memory>=4.19.0",
+    "neural-memory>=4.18.0",
     "numpy>=1.24.0",
+    "hnswlib>=0.8.0",
+    "msgpack>=1.0.0",
 ]
 
 [project.optional-dependencies]
