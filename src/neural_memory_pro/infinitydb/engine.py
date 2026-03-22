@@ -21,6 +21,7 @@ from neural_memory_pro.infinitydb.file_format import BrainPaths, InfinityHeader
 from neural_memory_pro.infinitydb.graph_store import GraphStore
 from neural_memory_pro.infinitydb.hnsw_index import HNSWIndex
 from neural_memory_pro.infinitydb.metadata_store import MetadataStore
+from neural_memory_pro.infinitydb.query_planner import QueryExecutor, QueryPlan
 from neural_memory_pro.infinitydb.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -626,6 +627,17 @@ class InfinityDB:
             "dimensions": self._dimensions,
             "is_open": self._is_open,
         }
+
+    # --- Multi-dimensional Query ---
+
+    async def query(self, plan: QueryPlan) -> list[dict[str, Any]]:
+        """Execute a multi-dimensional query plan.
+
+        Fuses vector similarity, graph proximity, recency, priority,
+        and metadata filters using Reciprocal Rank Fusion.
+        """
+        executor = QueryExecutor(self._metadata, self._index, self._graph)
+        return await asyncio.to_thread(executor.execute, plan)
 
     # --- Suggest ---
 
