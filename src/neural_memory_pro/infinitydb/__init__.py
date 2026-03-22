@@ -10,6 +10,8 @@ from neural_memory_pro.infinitydb.compressor import CompressionTier, VectorCompr
 from neural_memory_pro.infinitydb.engine import InfinityDB
 from neural_memory_pro.infinitydb.fiber_store import FiberStore
 from neural_memory_pro.infinitydb.graph_store import GraphStore
+from neural_memory_pro.infinitydb.migrator import MigrationStats, SQLiteToInfinityMigrator
+from neural_memory_pro.infinitydb.query_planner import QueryPlan
 from neural_memory_pro.infinitydb.tier_manager import TierConfig, TierManager, TierStats
 
 __all__ = [
@@ -21,4 +23,7 @@ __all__ = [
     "TierConfig",
     "TierManager",
     "TierStats",
+    "QueryPlan",
+    "MigrationStats",
+    "SQLiteToInfinityMigrator",
 ]
