@@ -1,7 +1,7 @@
 """InfinityDB — Main database engine.
 
-Orchestrates vector store, HNSW index, and metadata store
-to provide a unified neuron storage interface.
+Orchestrates vector store, HNSW index, metadata store, graph store,
+and fiber store to provide a unified neuron + graph storage interface.
 """
 
 from __future__ import annotations
@@ -16,7 +16,9 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from neural_memory_pro.infinitydb.fiber_store import FiberStore
 from neural_memory_pro.infinitydb.file_format import BrainPaths, InfinityHeader
+from neural_memory_pro.infinitydb.graph_store import GraphStore
 from neural_memory_pro.infinitydb.hnsw_index import HNSWIndex
 from neural_memory_pro.infinitydb.metadata_store import MetadataStore
 from neural_memory_pro.infinitydb.vector_store import VectorStore
@@ -50,6 +52,8 @@ class InfinityDB:
         self._vectors = VectorStore(self._paths.vectors, dimensions)
         self._index = HNSWIndex(self._paths.index, dimensions)
         self._metadata = MetadataStore(self._paths.meta)
+        self._graph = GraphStore(self._paths.graph)
+        self._fibers = FiberStore(self._paths.fibers)
         self._is_open = False
 
     @property
@@ -67,6 +71,14 @@ class InfinityDB:
     @property
     def neuron_count(self) -> int:
         return self._metadata.count
+
+    @property
+    def synapse_count(self) -> int:
+        return self._graph.edge_count
+
+    @property
+    def fiber_count(self) -> int:
+        return self._fibers.count
 
     # --- Lifecycle ---
 
@@ -92,6 +104,8 @@ class InfinityDB:
         # Open stores
         self._metadata.open()
         self._vectors.open()
+        self._graph.open()
+        self._fibers.open()
 
         # Open HNSW with capacity based on metadata count
         initial_cap = max(1024, self._metadata.count * 2)
@@ -99,8 +113,9 @@ class InfinityDB:
 
         self._is_open = True
         logger.info(
-            "InfinityDB opened: brain=%s, neurons=%d, dims=%d",
-            self._brain_id, self._metadata.count, self._dimensions,
+            "InfinityDB opened: brain=%s, neurons=%d, synapses=%d, fibers=%d, dims=%d",
+            self._brain_id, self._metadata.count, self._graph.edge_count,
+            self._fibers.count, self._dimensions,
         )
 
     async def close(self) -> None:
@@ -114,6 +129,8 @@ class InfinityDB:
         self._metadata.close()
         self._vectors.close()
         self._index.close()
+        self._graph.close()
+        self._fibers.close()
         self._is_open = False
         logger.info("InfinityDB closed: brain=%s", self._brain_id)
 
@@ -126,6 +143,8 @@ class InfinityDB:
         self._metadata.flush()
         self._vectors.flush()
         self._index.save()
+        self._graph.flush()
+        self._fibers.flush()
 
     def _flush_header(self) -> None:
         header = InfinityHeader(
@@ -134,7 +153,7 @@ class InfinityDB:
             tier_config=self._header.tier_config,
             flags=self._header.flags,
             neuron_count=self._metadata.count,
-            synapse_count=self._header.synapse_count,
+            synapse_count=self._graph.edge_count,
         )
         self._paths.header.write_bytes(header.to_bytes())
 
@@ -212,46 +231,57 @@ class InfinityDB:
         return await asyncio.to_thread(self._add_neurons_batch_sync, neurons)
 
     def _add_neurons_batch_sync(self, neurons: list[dict[str, Any]]) -> list[str]:
-        """Synchronous batch insert — no asyncio overhead."""
+        """Synchronous batch insert with rollback on failure."""
         now = _utcnow()
         ids: list[str] = []
         vec_slots: list[int] = []
         vec_arrays: list[NDArray[np.float32]] = []
+        committed_meta_slots: list[int] = []
 
-        for neuron in neurons:
-            nid = neuron.get("neuron_id") or str(uuid.uuid4())
-            embedding = neuron.get("embedding")
-            vec_slot = -1
+        try:
+            for neuron in neurons:
+                nid = neuron.get("neuron_id") or str(uuid.uuid4())
+                embedding = neuron.get("embedding")
+                vec_slot = -1
 
-            if embedding is not None:
-                vec = np.asarray(embedding, dtype=np.float32)
-                if vec.shape == (self._dimensions,):
-                    vec_slot = self._vectors.add(vec)
-                    vec_slots.append(vec_slot)
-                    vec_arrays.append(vec)
+                if embedding is not None:
+                    vec = np.asarray(embedding, dtype=np.float32)
+                    if vec.shape == (self._dimensions,):
+                        vec_slot = self._vectors.add(vec)
+                        vec_slots.append(vec_slot)
+                        vec_arrays.append(vec)
 
-            meta: dict[str, Any] = {
-                "id": nid,
-                "type": neuron.get("neuron_type", "fact"),
-                "content": neuron.get("content", ""),
-                "priority": neuron.get("priority", 5),
-                "activation_level": neuron.get("activation_level", 1.0),
-                "created_at": now,
-                "updated_at": now,
-                "accessed_at": now,
-                "access_count": 0,
-                "ephemeral": neuron.get("ephemeral", False),
-                "tags": list(neuron.get("tags", [])),
-                "vec_slot": vec_slot,
-            }
-            slot = vec_slot if vec_slot >= 0 else self._metadata.next_free_slot()
-            self._metadata.add(slot, meta)
-            ids.append(nid)
+                meta: dict[str, Any] = {
+                    "id": nid,
+                    "type": neuron.get("neuron_type", "fact"),
+                    "content": neuron.get("content", ""),
+                    "priority": neuron.get("priority", 5),
+                    "activation_level": neuron.get("activation_level", 1.0),
+                    "created_at": now,
+                    "updated_at": now,
+                    "accessed_at": now,
+                    "access_count": 0,
+                    "ephemeral": neuron.get("ephemeral", False),
+                    "tags": list(neuron.get("tags", [])),
+                    "vec_slot": vec_slot,
+                }
+                slot = vec_slot if vec_slot >= 0 else self._metadata.next_free_slot()
+                self._metadata.add(slot, meta)
+                committed_meta_slots.append(slot)
+                ids.append(nid)
 
-        # Batch add to HNSW index AFTER metadata is committed
-        if vec_slots and vec_arrays:
-            vectors = np.stack(vec_arrays)
-            self._index.add_batch(vec_slots, vectors)
+            # Batch add to HNSW index AFTER metadata is committed
+            if vec_slots and vec_arrays:
+                vectors = np.stack(vec_arrays)
+                self._index.add_batch(vec_slots, vectors)
+
+        except Exception:
+            # Rollback: delete committed metadata and vector slots
+            for slot in committed_meta_slots:
+                self._metadata.delete(slot)
+            for slot in vec_slots:
+                self._vectors.delete(slot)
+            raise
 
         return ids
 
@@ -331,20 +361,24 @@ class InfinityDB:
             vec = np.asarray(embedding, dtype=np.float32)
             if vec.shape == (self._dimensions,):
                 old_slot = meta.get("vec_slot", -1)
+                # Always use add-then-delete pattern to prevent orphaned slots on failure
+                new_slot = await asyncio.to_thread(self._vectors.add, vec)
+                try:
+                    await asyncio.to_thread(self._index.add, new_slot, vec)
+                except Exception:
+                    await asyncio.to_thread(self._vectors.delete, new_slot)
+                    raise
+                # Success — remove old slot
                 if old_slot >= 0:
                     await asyncio.to_thread(self._index.delete, old_slot)
-                    await asyncio.to_thread(self._vectors.update, old_slot, vec)
-                    await asyncio.to_thread(self._index.add, old_slot, vec)
-                else:
-                    new_slot = await asyncio.to_thread(self._vectors.add, vec)
-                    await asyncio.to_thread(self._index.add, new_slot, vec)
-                    updates["vec_slot"] = new_slot
+                    await asyncio.to_thread(self._vectors.delete, old_slot)
+                updates["vec_slot"] = new_slot
 
         await asyncio.to_thread(self._metadata.update, slot, updates)
         return True
 
     async def delete_neuron(self, neuron_id: str) -> bool:
-        """Delete a neuron and its vector."""
+        """Delete a neuron, its vector, edges, and fiber memberships."""
         result = await asyncio.to_thread(self._metadata.get_by_id, neuron_id)
         if result is None:
             return False
@@ -355,6 +389,10 @@ class InfinityDB:
         if vec_slot >= 0:
             await asyncio.to_thread(self._vectors.delete, vec_slot)
             await asyncio.to_thread(self._index.delete, vec_slot)
+
+        # Clean up graph edges and fiber memberships
+        await asyncio.to_thread(self._graph.delete_neuron_edges, neuron_id)
+        await asyncio.to_thread(self._fibers.remove_neuron_from_all, neuron_id)
 
         await asyncio.to_thread(self._metadata.delete, slot)
         return True
@@ -415,6 +453,165 @@ class InfinityDB:
 
         return batch_results
 
+    # --- Synapse (Graph) API ---
+
+    async def add_synapse(
+        self,
+        source_id: str,
+        target_id: str,
+        *,
+        edge_type: str = "related",
+        weight: float = 1.0,
+        edge_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """Add a directed synapse between two neurons. Returns edge ID.
+
+        Raises ValueError if source or target neuron does not exist.
+        """
+        if await asyncio.to_thread(self._metadata.get_by_id, source_id) is None:
+            msg = f"Source neuron not found: {source_id!r}"
+            raise ValueError(msg)
+        if await asyncio.to_thread(self._metadata.get_by_id, target_id) is None:
+            msg = f"Target neuron not found: {target_id!r}"
+            raise ValueError(msg)
+        return await asyncio.to_thread(
+            self._graph.add_edge,
+            source_id, target_id,
+            edge_type=edge_type, weight=weight,
+            edge_id=edge_id, metadata=metadata,
+        )
+
+    async def get_synapses(
+        self,
+        neuron_id: str,
+        *,
+        direction: str = "outgoing",
+    ) -> list[dict[str, Any]]:
+        """Get synapses for a neuron.
+
+        Args:
+            direction: "outgoing", "incoming", or "both"
+        """
+        if direction == "outgoing":
+            return await asyncio.to_thread(self._graph.get_outgoing, neuron_id)
+        elif direction == "incoming":
+            return await asyncio.to_thread(self._graph.get_incoming, neuron_id)
+        else:
+            out = await asyncio.to_thread(self._graph.get_outgoing, neuron_id)
+            inc = await asyncio.to_thread(self._graph.get_incoming, neuron_id)
+            # Deduplicate self-loop edges that appear in both directions
+            seen: set[str] = set()
+            merged: list[dict[str, Any]] = []
+            for e in out + inc:
+                eid = e.get("id", "")
+                if eid not in seen:
+                    seen.add(eid)
+                    merged.append(e)
+            return merged
+
+    async def delete_synapse(self, edge_id: str) -> bool:
+        """Delete a synapse by edge ID."""
+        return await asyncio.to_thread(self._graph.delete_edge, edge_id)
+
+    async def update_synapse(self, edge_id: str, updates: dict[str, Any]) -> bool:
+        """Update synapse weight, type, or metadata."""
+        return await asyncio.to_thread(self._graph.update_edge, edge_id, updates)
+
+    async def get_neighbors(
+        self,
+        neuron_id: str,
+        *,
+        direction: str = "both",
+        edge_type: str | None = None,
+    ) -> list[str]:
+        """Get neighbor neuron IDs."""
+        return await asyncio.to_thread(
+            self._graph.get_neighbors, neuron_id,
+            direction=direction, edge_type=edge_type,
+        )
+
+    async def bfs_traverse(
+        self,
+        start_id: str,
+        *,
+        max_depth: int = 3,
+        direction: str = "outgoing",
+        edge_type: str | None = None,
+        max_nodes: int = 1000,
+    ) -> list[tuple[str, int]]:
+        """BFS traversal from a neuron. Returns list of (neuron_id, depth)."""
+        return await asyncio.to_thread(
+            self._graph.bfs, start_id,
+            max_depth=max_depth, direction=direction,
+            edge_type=edge_type, max_nodes=max_nodes,
+        )
+
+    async def get_subgraph(
+        self, neuron_ids: list[str]
+    ) -> list[dict[str, Any]]:
+        """Get all edges within a set of neurons (induced subgraph)."""
+        return await asyncio.to_thread(self._graph.get_subgraph, neuron_ids)
+
+    # --- Fiber API ---
+
+    async def add_fiber(
+        self,
+        name: str,
+        *,
+        fiber_id: str | None = None,
+        fiber_type: str = "cluster",
+        description: str = "",
+        neuron_ids: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """Create a new fiber (neuron collection). Returns fiber ID."""
+        return await asyncio.to_thread(
+            self._fibers.add_fiber, name,
+            fiber_id=fiber_id, fiber_type=fiber_type,
+            description=description, neuron_ids=neuron_ids,
+            metadata=metadata,
+        )
+
+    async def get_fiber(self, fiber_id: str) -> dict[str, Any] | None:
+        """Get fiber by ID."""
+        return await asyncio.to_thread(self._fibers.get_fiber, fiber_id)
+
+    async def find_fibers(
+        self,
+        *,
+        name_contains: str | None = None,
+        fiber_type: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Find fibers matching filters."""
+        return await asyncio.to_thread(
+            self._fibers.find_fibers,
+            name_contains=name_contains, fiber_type=fiber_type, limit=limit,
+        )
+
+    async def add_neuron_to_fiber(self, fiber_id: str, neuron_id: str) -> bool:
+        """Add a neuron to a fiber."""
+        return await asyncio.to_thread(
+            self._fibers.add_neuron_to_fiber, fiber_id, neuron_id
+        )
+
+    async def remove_neuron_from_fiber(self, fiber_id: str, neuron_id: str) -> bool:
+        """Remove a neuron from a fiber."""
+        return await asyncio.to_thread(
+            self._fibers.remove_neuron_from_fiber, fiber_id, neuron_id
+        )
+
+    async def get_fibers_for_neuron(self, neuron_id: str) -> list[str]:
+        """Get all fiber IDs containing a neuron."""
+        return await asyncio.to_thread(
+            self._fibers.get_fibers_for_neuron, neuron_id
+        )
+
+    async def delete_fiber(self, fiber_id: str) -> bool:
+        """Delete a fiber."""
+        return await asyncio.to_thread(self._fibers.delete_fiber, fiber_id)
+
     # --- Stats ---
 
     async def get_stats(self) -> dict[str, Any]:
@@ -424,6 +621,8 @@ class InfinityDB:
             "neuron_count": self._metadata.count,
             "vector_count": self._vectors.count,
             "index_count": self._index.count,
+            "synapse_count": self._graph.edge_count,
+            "fiber_count": self._fibers.count,
             "dimensions": self._dimensions,
             "is_open": self._is_open,
         }

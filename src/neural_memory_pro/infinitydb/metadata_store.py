@@ -37,6 +37,12 @@ class MetadataStore:
 
     def open(self) -> None:
         """Load metadata from disk."""
+        # Recover from interrupted flush
+        tmp = self._path.with_suffix(".meta.tmp")
+        if tmp.exists():
+            logger.warning("Recovering from interrupted flush: %s", tmp)
+            tmp.replace(self._path)
+
         if self._path.exists() and self._path.stat().st_size > 0:
             try:
                 with open(self._path, "rb") as f:
