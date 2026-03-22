@@ -1,7 +1,12 @@
-"""InfinityDB Stress Test — 1M and 2M neuron benchmarks.
+"""InfinityDB Stress Test — multi-scale neuron benchmarks.
 
 Run overnight to validate performance at scale:
     python benchmarks/stress_test.py
+
+Three benchmark tiers:
+  Tier A: 100K neurons @ 384D (production dimensions)
+  Tier B: 1M neurons @ 64D (scale test, reduced dims)
+  Tier C: 2M neurons @ 32D (max scale test)
 
 Results are written to benchmarks/results/<timestamp>.json
 
@@ -44,13 +49,19 @@ logger = logging.getLogger("stress_test")
 
 # ── Configuration ──
 
-DIMENSIONS = 384  # production embedding size
 BATCH_SIZE = 5000
 SEARCH_K_VALUES = [10, 50, 100]
 BFS_DEPTHS = [1, 2, 3]
 SEARCH_ITERATIONS = 100  # number of search queries per k value
 SYNAPSE_RATIO = 3  # average synapses per neuron
 FIBER_COUNT = 50  # number of fibers to create
+
+# Benchmark tiers — scale vs dimension trade-off to fit in memory
+BENCHMARK_TIERS = [
+    {"name": "100K_384D", "neurons": 100_000, "dims": 384},
+    {"name": "1M_64D", "neurons": 1_000_000, "dims": 64},
+    {"name": "2M_32D", "neurons": 2_000_000, "dims": 32},
+]
 
 NEURON_TYPES = ["fact", "decision", "error", "insight", "preference",
                 "workflow", "instruction", "concept", "entity", "pattern"]
@@ -115,11 +126,12 @@ def _percentile(values: list[float], p: float) -> float:
 async def benchmark_insert(
     db: InfinityDB,
     neuron_count: int,
+    dims: int,
     rng: np.random.Generator,
 ) -> dict[str, Any]:
     """Benchmark batch neuron insertion."""
-    logger.info("=== INSERT BENCHMARK: %d neurons ===", neuron_count)
-    results: dict[str, Any] = {"neuron_count": neuron_count}
+    logger.info("=== INSERT BENCHMARK: %d neurons @ %dD ===", neuron_count, dims)
+    results: dict[str, Any] = {"neuron_count": neuron_count, "dimensions": dims}
 
     t0 = time.perf_counter()
     total_inserted = 0
@@ -131,7 +143,7 @@ async def benchmark_insert(
 
         neurons: list[dict[str, Any]] = []
         for i in range(batch_start, batch_end):
-            vec = rng.standard_normal(DIMENSIONS).astype(np.float32)
+            vec = rng.standard_normal(dims).astype(np.float32)
             vec /= np.linalg.norm(vec)  # normalize
             neurons.append({
                 "neuron_id": f"n{i:08d}",
@@ -268,6 +280,7 @@ async def benchmark_flush(db: InfinityDB) -> dict[str, Any]:
 
 async def benchmark_search(
     db: InfinityDB,
+    dims: int,
     rng: np.random.Generator,
 ) -> dict[str, Any]:
     """Benchmark vector search at various k values."""
@@ -277,7 +290,7 @@ async def benchmark_search(
     for k in SEARCH_K_VALUES:
         latencies: list[float] = []
         for _ in range(SEARCH_ITERATIONS):
-            query = rng.standard_normal(DIMENSIONS).astype(np.float32)
+            query = rng.standard_normal(dims).astype(np.float32)
             query /= np.linalg.norm(query)
 
             t0 = time.perf_counter()
@@ -344,6 +357,7 @@ async def benchmark_bfs(
 async def benchmark_query(
     db: InfinityDB,
     neuron_count: int,
+    dims: int,
     rng: np.random.Generator,
 ) -> dict[str, Any]:
     """Benchmark multi-dimensional RRF queries."""
@@ -353,7 +367,7 @@ async def benchmark_query(
     scenarios: dict[str, QueryPlan] = {}
 
     # Vector-only
-    vec = rng.standard_normal(DIMENSIONS).astype(np.float32)
+    vec = rng.standard_normal(dims).astype(np.float32)
     vec /= np.linalg.norm(vec)
     scenarios["vector_only"] = QueryPlan(
         query_vector=vec, vector_weight=1.0, limit=20,
@@ -396,7 +410,7 @@ async def benchmark_query(
         for _ in range(50):
             # Regenerate vector for each iteration
             if plan.query_vector is not None:
-                new_vec = rng.standard_normal(DIMENSIONS).astype(np.float32)
+                new_vec = rng.standard_normal(dims).astype(np.float32)
                 new_vec /= np.linalg.norm(new_vec)
                 # QueryPlan is frozen, create new one
                 plan_dict = {
@@ -434,13 +448,13 @@ async def benchmark_query(
     return results
 
 
-async def benchmark_reopen(db_dir: Path, brain_id: str) -> dict[str, Any]:
+async def benchmark_reopen(db_dir: Path, brain_id: str, dims: int) -> dict[str, Any]:
     """Benchmark cold open (load from disk)."""
     logger.info("=== REOPEN BENCHMARK ===")
 
     gc.collect()
     t0 = time.perf_counter()
-    db = InfinityDB(db_dir, brain_id=brain_id, dimensions=DIMENSIONS)
+    db = InfinityDB(db_dir, brain_id=brain_id, dimensions=dims)
     await db.open()
     t1 = time.perf_counter()
 
@@ -456,29 +470,30 @@ async def benchmark_reopen(db_dir: Path, brain_id: str) -> dict[str, Any]:
     return results
 
 
-async def run_benchmark(neuron_count: int, base_dir: Path) -> dict[str, Any]:
-    """Run full benchmark suite for a given neuron count."""
+async def run_benchmark(neuron_count: int, dims: int, name: str, base_dir: Path) -> dict[str, Any]:
+    """Run full benchmark suite for a given neuron count and dimension."""
     logger.info("\n" + "=" * 60)
-    logger.info("STARTING BENCHMARK: %d neurons", neuron_count)
+    logger.info("STARTING BENCHMARK: %s (%d neurons @ %dD)", name, neuron_count, dims)
     logger.info("=" * 60)
 
-    brain_id = f"bench-{neuron_count // 1000}k"
+    brain_id = f"bench-{name}"
     db_dir = base_dir / "brains"
     rng = np.random.default_rng(42)
 
-    db = InfinityDB(db_dir, brain_id=brain_id, dimensions=DIMENSIONS)
+    db = InfinityDB(db_dir, brain_id=brain_id, dimensions=dims)
     await db.open()
 
     all_results: dict[str, Any] = {
+        "name": name,
         "neuron_count": neuron_count,
-        "dimensions": DIMENSIONS,
+        "dimensions": dims,
         "batch_size": BATCH_SIZE,
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
 
     try:
         # Phase 1: Insert neurons
-        all_results["insert"] = await benchmark_insert(db, neuron_count, rng)
+        all_results["insert"] = await benchmark_insert(db, neuron_count, dims, rng)
 
         # Phase 2: Insert synapses
         all_results["synapses"] = await benchmark_synapses(db, neuron_count, rng)
@@ -491,7 +506,7 @@ async def run_benchmark(neuron_count: int, base_dir: Path) -> dict[str, Any]:
 
         # Disk stats after flush
         disk_mb = _dir_size_mb(db_dir)
-        raw_mb = (neuron_count * DIMENSIONS * 4) / 1024 / 1024  # float32 vectors alone
+        raw_mb = (neuron_count * dims * 4) / 1024 / 1024  # float32 vectors alone
         all_results["disk"] = {
             "total_mb": round(disk_mb, 1),
             "raw_vectors_mb": round(raw_mb, 1),
@@ -500,17 +515,17 @@ async def run_benchmark(neuron_count: int, base_dir: Path) -> dict[str, Any]:
         logger.info("  DISK: %.1f MB total (raw vectors alone: %.1f MB)", disk_mb, raw_mb)
 
         # Phase 5: Vector search
-        all_results["search"] = await benchmark_search(db, rng)
+        all_results["search"] = await benchmark_search(db, dims, rng)
 
         # Phase 6: BFS traversal
         all_results["bfs"] = await benchmark_bfs(db, neuron_count, rng)
 
         # Phase 7: Multi-dimensional query
-        all_results["query"] = await benchmark_query(db, neuron_count, rng)
+        all_results["query"] = await benchmark_query(db, neuron_count, dims, rng)
 
         # Phase 8: Close and reopen (cold start)
         await db.close()
-        all_results["reopen"] = await benchmark_reopen(db_dir, brain_id)
+        all_results["reopen"] = await benchmark_reopen(db_dir, brain_id, dims)
 
     except Exception as e:
         logger.error("BENCHMARK FAILED: %s", e, exc_info=True)
@@ -538,22 +553,22 @@ async def main() -> None:
     base_dir.mkdir(parents=True, exist_ok=True)
 
     all_results: dict[str, Any] = {
-        "benchmark_version": "1.0",
+        "benchmark_version": "2.0",
         "timestamp": timestamp,
         "python_version": sys.version,
         "platform": sys.platform,
+        "tiers": [t["name"] for t in BENCHMARK_TIERS],
     }
 
-    # Run 1M benchmark
-    logger.info("\n\n>>> STARTING 1M NEURON BENCHMARK <<<\n")
-    all_results["1M"] = await run_benchmark(1_000_000, base_dir / "1M")
-
-    # Force GC between benchmarks
-    gc.collect()
-
-    # Run 2M benchmark
-    logger.info("\n\n>>> STARTING 2M NEURON BENCHMARK <<<\n")
-    all_results["2M"] = await run_benchmark(2_000_000, base_dir / "2M")
+    for tier in BENCHMARK_TIERS:
+        name = tier["name"]
+        logger.info("\n\n>>> STARTING %s BENCHMARK <<<\n", name)
+        all_results[name] = await run_benchmark(
+            tier["neurons"], tier["dims"], name,
+            base_dir / name,
+        )
+        # Force GC between benchmarks
+        gc.collect()
 
     # Save results
     output_path = results_dir / f"stress_test_{timestamp}.json"
@@ -566,10 +581,11 @@ async def main() -> None:
     logger.info("=" * 60)
 
     # Print summary
-    for scale in ["1M", "2M"]:
-        if scale in all_results and "error" not in all_results[scale]:
-            r = all_results[scale]
-            logger.info("\n--- %s Summary ---", scale)
+    for tier in BENCHMARK_TIERS:
+        name = tier["name"]
+        if name in all_results and "error" not in all_results[name]:
+            r = all_results[name]
+            logger.info("\n--- %s Summary ---", name)
             logger.info("  Insert: %.0f neurons/sec", r["insert"]["neurons_per_second"])
             logger.info("  Disk: %.1f MB", r["disk"]["total_mb"])
             if "search" in r:
