@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "neural-memory-pro"
+version = "0.1.0"
+description = "Pro extensions for Neural Memory — advanced retrieval, compression, and consolidation"
+readme = "README.md"
+license = { text = "Proprietary" }
+requires-python = ">=3.11"
+authors = [{ name = "AIVN Foundation", email = "claude@theio.vn" }]
+dependencies = [
+    "neural-memory>=4.19.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.4",
+    "mypy>=1.8",
+]
+
+[project.entry-points."neural_memory.plugins"]
+pro = "neural_memory_pro:auto_register"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neural_memory_pro"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "PIE"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
