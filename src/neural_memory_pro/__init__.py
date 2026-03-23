@@ -12,6 +12,17 @@ from __future__ import annotations
 
 __version__ = "0.2.0"
 
+# Public API — lazy imports to avoid circular deps at import time
+from neural_memory_pro.infinitydb.engine import InfinityDB
+from neural_memory_pro.storage_adapter import InfinityDBStorage
+
+__all__ = [
+    "InfinityDB",
+    "InfinityDBStorage",
+    "__version__",
+    "auto_register",
+]
+
 
 def auto_register() -> None:
     """Entry point called by neural-memory plugin discovery."""

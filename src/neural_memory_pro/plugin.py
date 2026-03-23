@@ -40,6 +40,11 @@ class NMProPlugin(ProPlugin):
             "smart_merge": smart_merge,
         }
 
+    def get_storage_class(self) -> type | None:
+        from neural_memory_pro.storage_adapter import InfinityDBStorage
+
+        return InfinityDBStorage
+
     def get_tools(self) -> list[dict[str, Any]]:
         from neural_memory_pro.mcp_tools import PRO_TOOL_SCHEMAS
 

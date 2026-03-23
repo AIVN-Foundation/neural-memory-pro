@@ -457,12 +457,118 @@ class InfinityDBStorage(NeuralStorage):
         )
 
     async def export_brain(self, brain_id: str) -> BrainSnapshot:
-        raise NotImplementedError("InfinityDB export not yet implemented")
+        from neural_memory.core.brain import BrainSnapshot
+
+        if brain_id != self.db.brain_id:
+            raise ValueError(f"Brain '{brain_id}' not found in this InfinityDB")
+
+        # Export all neurons
+        all_neurons = await self.db.find_neurons(limit=50000)
+        neurons_out: list[dict[str, Any]] = []
+        for meta in all_neurons:
+            neurons_out.append({
+                "id": meta.get("id", ""),
+                "type": meta.get("type", "concept"),
+                "content": meta.get("content", ""),
+                "metadata": {
+                    k: v for k, v in meta.items()
+                    if k not in ("id", "type", "content", "created_at")
+                },
+                "created_at": meta.get("created_at", ""),
+            })
+
+        # Export all synapses
+        synapses_out: list[dict[str, Any]] = []
+        exported_sources: set[str] = set()
+        for n in all_neurons:
+            nid = n.get("id", "")
+            if nid in exported_sources:
+                continue
+            exported_sources.add(nid)
+            edges = await self.db.get_synapses(nid, direction="outgoing")
+            for edge in edges:
+                synapses_out.append({
+                    "id": edge.get("id", ""),
+                    "source_id": edge.get("source_id", ""),
+                    "target_id": edge.get("target_id", ""),
+                    "type": edge.get("type", "related"),
+                    "weight": edge.get("weight", 1.0),
+                    "metadata": edge.get("metadata", {}),
+                })
+
+        # Export all fibers
+        fibers_out: list[dict[str, Any]] = []
+        fiber_list = await self.db.find_fibers(limit=50000)
+        for f in fiber_list:
+            fibers_out.append({
+                "id": f.get("id", ""),
+                "neuron_ids": f.get("neuron_ids", []),
+                "synapse_ids": f.get("synapse_ids", []),
+                "anchor_neuron_id": f.get("anchor_neuron_id", ""),
+                "summary": f.get("name", ""),
+                "metadata": f.get("metadata", {}),
+            })
+
+        return BrainSnapshot(
+            brain_id=brain_id,
+            brain_name=brain_id,
+            exported_at=utcnow(),
+            version="infinitydb-0.2.0",
+            neurons=neurons_out,
+            synapses=synapses_out,
+            fibers=fibers_out,
+            config={},
+            metadata={"storage_backend": "infinitydb"},
+        )
 
     async def import_brain(
         self, snapshot: BrainSnapshot, target_brain_id: str | None = None
     ) -> str:
-        raise NotImplementedError("InfinityDB import not yet implemented")
+        bid = target_brain_id or snapshot.brain_id
+
+        # Clear existing data if same brain
+        if bid == self.db.brain_id:
+            await self.clear(bid)
+
+        # Import neurons
+        for ndata in snapshot.neurons:
+            meta = ndata.get("metadata", {})
+            await self.db.add_neuron(
+                content=ndata.get("content", ""),
+                neuron_id=ndata.get("id", ""),
+                neuron_type=ndata.get("type", "concept"),
+                priority=meta.get("priority", 5),
+                activation_level=meta.get("activation_level", 1.0),
+                tags=meta.get("tags", []),
+                embedding=meta.get("embedding"),
+            )
+
+        # Import synapses
+        for sdata in snapshot.synapses:
+            await self.db.add_synapse(
+                source_id=sdata.get("source_id", ""),
+                target_id=sdata.get("target_id", ""),
+                edge_type=sdata.get("type", "related"),
+                weight=sdata.get("weight", 1.0),
+                edge_id=sdata.get("id"),
+                metadata=sdata.get("metadata", {}),
+            )
+
+        # Import fibers
+        for fdata in snapshot.fibers:
+            await self.db.add_fiber(
+                name=fdata.get("summary", ""),
+                fiber_id=fdata.get("id"),
+                neuron_ids=fdata.get("neuron_ids"),
+                metadata={
+                    **(fdata.get("metadata") or {}),
+                    "synapse_ids": fdata.get("synapse_ids", []),
+                    "anchor_neuron_id": fdata.get("anchor_neuron_id", ""),
+                },
+            )
+
+        await self.db.flush()
+        return bid
 
     # ========== Stats ==========
 

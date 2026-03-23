@@ -324,3 +324,99 @@ class TestGraphTraversal:
         path = await storage.get_path("n1", "n2")
         assert path is None
         await storage.close()
+
+
+# --- Export / Import ---
+
+
+class TestExportImport:
+    @pytest.mark.asyncio
+    async def test_export_brain(self, db_dir: Path) -> None:
+        storage = await _make_storage(db_dir)
+        await storage.add_neuron(_make_neuron("hello", "n1"))
+        await storage.add_neuron(_make_neuron("world", "n2"))
+
+        synapse = Synapse.create(
+            type=SynapseType.RELATED_TO,
+            source_id="n1", target_id="n2",
+        )
+        await storage.add_synapse(synapse)
+
+        snapshot = await storage.export_brain("test")
+        assert snapshot.brain_id == "test"
+        assert len(snapshot.neurons) == 2
+        assert len(snapshot.synapses) >= 1
+        assert snapshot.version == "infinitydb-0.2.0"
+        await storage.close()
+
+    @pytest.mark.asyncio
+    async def test_export_wrong_brain_raises(self, db_dir: Path) -> None:
+        storage = await _make_storage(db_dir)
+        with pytest.raises(ValueError, match="not found"):
+            await storage.export_brain("nonexistent")
+        await storage.close()
+
+    @pytest.mark.asyncio
+    async def test_import_brain(self, db_dir: Path) -> None:
+        # First create and export
+        storage = await _make_storage(db_dir)
+        await storage.add_neuron(_make_neuron("original", "n1"))
+        snapshot = await storage.export_brain("test")
+        await storage.close()
+
+        # Import into fresh storage
+        db_dir2 = db_dir.parent / "import_test"
+        storage2 = InfinityDBStorage(db_dir2, brain_id="test", dimensions=DIMS)
+        await storage2.open()
+        bid = await storage2.import_brain(snapshot)
+        assert bid == "test"
+
+        # Verify data round-tripped
+        neuron = await storage2.get_neuron("n1")
+        assert neuron is not None
+        assert neuron.content == "original"
+        await storage2.close()
+
+    @pytest.mark.asyncio
+    async def test_export_import_round_trip(self, db_dir: Path) -> None:
+        storage = await _make_storage(db_dir)
+        await storage.add_neuron(_make_neuron("alpha", "n1"))
+        await storage.add_neuron(_make_neuron("beta", "n2"))
+        synapse = Synapse.create(
+            type=SynapseType.RELATED_TO,
+            source_id="n1", target_id="n2", weight=0.7,
+        )
+        await storage.add_synapse(synapse)
+
+        snapshot = await storage.export_brain("test")
+        await storage.close()
+
+        # Re-import
+        db_dir2 = db_dir.parent / "roundtrip"
+        storage2 = InfinityDBStorage(db_dir2, brain_id="test", dimensions=DIMS)
+        await storage2.open()
+        await storage2.import_brain(snapshot)
+
+        stats = await storage2.get_stats("test")
+        assert stats["neuron_count"] == 2
+        assert stats["synapse_count"] >= 1
+        await storage2.close()
+
+
+# --- Plugin Integration ---
+
+
+class TestPluginIntegration:
+    def test_plugin_returns_storage_class(self) -> None:
+        from neural_memory_pro.plugin import NMProPlugin
+
+        plugin = NMProPlugin()
+        cls = plugin.get_storage_class()
+        assert cls is InfinityDBStorage
+
+    def test_imports_from_package(self) -> None:
+        from neural_memory_pro import InfinityDB, InfinityDBStorage as IDS
+
+        assert IDS is InfinityDBStorage
+        assert IDS is not None
+        assert IDS.__name__ == "InfinityDBStorage"
