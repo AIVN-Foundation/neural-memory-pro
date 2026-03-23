@@ -1,0 +1,236 @@
+{
+  "benchmark_version": "2.0",
+  "timestamp": "20260322_215538",
+  "python_version": "3.14.2 (tags/v3.14.2:df79316, Dec  5 2025, 17:18:21) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "win32",
+  "tiers": [
+    "100K_384D",
+    "1M_64D",
+    "2M_32D"
+  ],
+  "100K_384D": {
+    "name": "100K_384D",
+    "neuron_count": 100000,
+    "dimensions": 384,
+    "batch_size": 5000,
+    "started_at": "2026-03-22T21:55:38.189627+00:00",
+    "insert": {
+      "neuron_count": 100000,
+      "dimensions": 384,
+      "total_seconds": 58.35,
+      "neurons_per_second": 1713.8,
+      "batch_p50_ms": 2888.37,
+      "batch_p95_ms": 6241.77,
+      "batch_p99_ms": 6241.77,
+      "rss_mb_after_insert": 543.0
+    },
+    "synapses": {
+      "synapse_count": 300000,
+      "errors": 0,
+      "total_seconds": 233.46,
+      "synapses_per_second": 1285.0
+    },
+    "fibers": {
+      "fiber_count": 50,
+      "total_seconds": 0.11
+    },
+    "flush": {
+      "flush_seconds": 1.38
+    },
+    "disk": {
+      "total_mb": 424.2,
+      "raw_vectors_mb": 146.5,
+      "compression_ratio": 0.35
+    },
+    "search": {
+      "k10": {
+        "p50_ms": 3.31,
+        "p95_ms": 4.72,
+        "p99_ms": 5.59,
+        "mean_ms": 3.41
+      },
+      "k50": {
+        "p50_ms": 8.91,
+        "p95_ms": 11.39,
+        "p99_ms": 12.52,
+        "mean_ms": 9.03
+      },
+      "k100": {
+        "p50_ms": 15.33,
+        "p95_ms": 18.88,
+        "p99_ms": 21.05,
+        "mean_ms": 15.22
+      }
+    },
+    "bfs": {
+      "depth_1": {
+        "p50_ms": 0.15,
+        "p95_ms": 0.26,
+        "avg_nodes_reached": 6.5
+      },
+      "depth_2": {
+        "p50_ms": 0.2,
+        "p95_ms": 0.28,
+        "avg_nodes_reached": 44.6
+      },
+      "depth_3": {
+        "p50_ms": 0.53,
+        "p95_ms": 0.87,
+        "avg_nodes_reached": 257.3
+      }
+    },
+    "error": "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+    "finished_at": "2026-03-22T22:00:35.127369+00:00",
+    "rss_mb_final": 95.0
+  },
+  "1M_64D": {
+    "name": "1M_64D",
+    "neuron_count": 1000000,
+    "dimensions": 64,
+    "batch_size": 5000,
+    "started_at": "2026-03-22T22:00:35.151306+00:00",
+    "insert": {
+      "neuron_count": 1000000,
+      "dimensions": 64,
+      "total_seconds": 154.73,
+      "neurons_per_second": 6462.7,
+      "batch_p50_ms": 753.22,
+      "batch_p95_ms": 830.63,
+      "batch_p99_ms": 987.29,
+      "rss_mb_after_insert": 1918.1
+    },
+    "synapses": {
+      "synapse_count": 3000000,
+      "errors": 0,
+      "total_seconds": 1310.68,
+      "synapses_per_second": 2288.9
+    },
+    "fibers": {
+      "fiber_count": 50,
+      "total_seconds": 0.64
+    },
+    "flush": {
+      "flush_seconds": 46.07
+    },
+    "disk": {
+      "total_mb": 1357.5,
+      "raw_vectors_mb": 244.1,
+      "compression_ratio": 0.18
+    },
+    "search": {
+      "k10": {
+        "p50_ms": 4.04,
+        "p95_ms": 6.43,
+        "p99_ms": 17.42,
+        "mean_ms": 4.37
+      },
+      "k50": {
+        "p50_ms": 13.73,
+        "p95_ms": 32.38,
+        "p99_ms": 64.59,
+        "mean_ms": 16.08
+      },
+      "k100": {
+        "p50_ms": 23.77,
+        "p95_ms": 66.51,
+        "p99_ms": 72.88,
+        "mean_ms": 28.33
+      }
+    },
+    "bfs": {
+      "depth_1": {
+        "p50_ms": 0.24,
+        "p95_ms": 0.7,
+        "avg_nodes_reached": 6.8
+      },
+      "depth_2": {
+        "p50_ms": 0.36,
+        "p95_ms": 0.62,
+        "avg_nodes_reached": 44.3
+      },
+      "depth_3": {
+        "p50_ms": 1.08,
+        "p95_ms": 5.08,
+        "avg_nodes_reached": 220.9
+      }
+    },
+    "error": "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+    "finished_at": "2026-03-22T22:26:05.563017+00:00",
+    "rss_mb_final": 130.5
+  },
+  "2M_32D": {
+    "name": "2M_32D",
+    "neuron_count": 2000000,
+    "dimensions": 32,
+    "batch_size": 5000,
+    "started_at": "2026-03-22T22:26:05.602141+00:00",
+    "insert": {
+      "neuron_count": 2000000,
+      "dimensions": 32,
+      "total_seconds": 485.58,
+      "neurons_per_second": 4118.7,
+      "batch_p50_ms": 1063.98,
+      "batch_p95_ms": 1795.3,
+      "batch_p99_ms": 3508.82,
+      "rss_mb_after_insert": 3277.1
+    },
+    "synapses": {
+      "synapse_count": 6000000,
+      "errors": 0,
+      "total_seconds": 2762.16,
+      "synapses_per_second": 2172.2
+    },
+    "fibers": {
+      "fiber_count": 50,
+      "total_seconds": 0.1
+    },
+    "flush": {
+      "flush_seconds": 26.95
+    },
+    "disk": {
+      "total_mb": 2216.8,
+      "raw_vectors_mb": 244.1,
+      "compression_ratio": 0.11
+    },
+    "search": {
+      "k10": {
+        "p50_ms": 2.21,
+        "p95_ms": 3.89,
+        "p99_ms": 4.29,
+        "mean_ms": 2.37
+      },
+      "k50": {
+        "p50_ms": 8.04,
+        "p95_ms": 10.52,
+        "p99_ms": 12.9,
+        "mean_ms": 8.21
+      },
+      "k100": {
+        "p50_ms": 14.63,
+        "p95_ms": 18.94,
+        "p99_ms": 20.39,
+        "mean_ms": 15.06
+      }
+    },
+    "bfs": {
+      "depth_1": {
+        "p50_ms": 0.17,
+        "p95_ms": 0.34,
+        "avg_nodes_reached": 7.4
+      },
+      "depth_2": {
+        "p50_ms": 0.26,
+        "p95_ms": 0.54,
+        "avg_nodes_reached": 46.2
+      },
+      "depth_3": {
+        "p50_ms": 0.64,
+        "p95_ms": 0.99,
+        "avg_nodes_reached": 256.3
+      }
+    },
+    "error": "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()",
+    "finished_at": "2026-03-22T23:20:53.448245+00:00",
+    "rss_mb_final": 136.9
+  }
+}

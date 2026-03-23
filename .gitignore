@@ -14,3 +14,6 @@ venv/
 *.db
 *.sqlite
 .env
+
+# Benchmark binary data (multi-GB InfinityDB files)
+benchmarks/data/

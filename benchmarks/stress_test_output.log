@@ -1,0 +1,244 @@
+2026-03-23 04:55:38,168 INFO stress_test: 
+
+>>> STARTING 100K_384D BENCHMARK <<<
+
+2026-03-23 04:55:38,169 INFO stress_test: 
+============================================================
+2026-03-23 04:55:38,169 INFO stress_test: STARTING BENCHMARK: 100K_384D (100000 neurons @ 384D)
+2026-03-23 04:55:38,169 INFO stress_test: ============================================================
+2026-03-23 04:55:38,188 INFO neural_memory_pro.infinitydb.engine: InfinityDB opened: brain=bench-100K_384D, neurons=0, synapses=0, fibers=0, dims=384
+2026-03-23 04:55:38,189 INFO stress_test: === INSERT BENCHMARK: 100000 neurons @ 384D ===
+2026-03-23 04:56:36,538 INFO stress_test:   Inserted 100000/100000 (1717 neurons/sec, RSS=543MB)
+2026-03-23 04:56:36,539 INFO stress_test:   INSERT DONE: 100000 neurons in 58.3s (1714/sec), p50=2888.4ms, p95=6241.8ms
+2026-03-23 04:56:36,549 INFO stress_test: === SYNAPSE BENCHMARK: 300000 synapses ===
+2026-03-23 04:57:44,878 INFO stress_test:   Synapses: 100000/300000 (1464/sec)
+2026-03-23 04:59:12,397 INFO stress_test:   Synapses: 200000/300000 (1283/sec)
+2026-03-23 05:00:30,013 INFO stress_test:   Synapses: 300000/300000 (1285/sec)
+2026-03-23 05:00:30,013 INFO stress_test:   SYNAPSE DONE: 300000 in 233.5s (1285/sec), 0 errors
+2026-03-23 05:00:30,013 INFO stress_test: === FIBER BENCHMARK: 50 fibers ===
+2026-03-23 05:00:30,127 INFO stress_test:   FIBER DONE: 50 in 0.1s
+2026-03-23 05:00:30,127 INFO stress_test: === FLUSH BENCHMARK ===
+2026-03-23 05:00:31,508 INFO stress_test:   FLUSH DONE: 1.38s
+2026-03-23 05:00:31,509 INFO stress_test:   DISK: 424.2 MB total (raw vectors alone: 146.5 MB)
+2026-03-23 05:00:31,509 INFO stress_test: === SEARCH BENCHMARK: 100 iterations per k ===
+2026-03-23 05:00:31,855 INFO stress_test:   k=10: p50=3.3ms, p95=4.7ms, p99=5.2026-03-23 05:01:25,621 INFO stress_test:   Synapses: 100000/3000000 (1224/sec)
+2026-03-23 05:03:21,293 INFO stress_test:   Synapses: 200000/3000000 (1013/sec)
+2026-03-23 05:03:59,938 INFO stress_test:   Synapses: 300000/3000000 (1271/sec)
+2026-03-23 05:04:43,833 INFO stress_test:   Synapses: 400000/3000000 (1429/sec)
+2026-03-23 05:05:25,905 INFO stress_test:   Synapses: 500000/3000000 (1553/sec)
+2026-03-23 05:06:06,165 INFO stress_test:   Synapses: 600000/3000000 (1656/sec)
+2026-03-23 05:06:42,962 INFO stress_test:   Synapses: 700000/3000000 (1754/sec)
+2026-03-23 05:07:20,255 INFO stress_test:   Synapses: 800000/3000000 (1834/sec)
+2026-03-23 05:07:56,416 INFO stress_test:   Synapses: 900000/3000000 (1905/sec)
+2026-03-23 05:08:32,321 INFO stress_test:   Synapses: 1000000/3000000 (1967/sec)
+2026-03-23 05:09:09,141 INFO stress_test:   Synapses: 1100000/3000000 (2018/sec)
+2026-03-23 05:09:45,668 INFO stress_test:   Synapses: 1200000/3000000 (2063/sec)
+2026-03-23 05:10:25,900 INFO stress_test:   Synapses: 1300000/3000000 (2090/sec)
+2026-03-23 05:11:11,451 INFO stress_test:   Synapses: 1400000/3000000 (2097/sec)
+2026-03-23 05:11:50,963 INFO stress_test:   Synapses: 1500000/3000000 (2122/sec)
+2026-03-23 05:12:29,174 INFO stress_test:   Synapses: 1600000/3000000 (2147/sec)
+2026-03-23 05:13:05,479 INFO stress_test:   Synapses: 1700000/3000000 (2175/sec)
+2026-03-23 05:13:41,539 INFO stress_test:   Synapses: 1800000/3000000 (2202/sec)
+2026-03-23 05:14:18,423 INFO stress_test:   Synapses: 1900000/3000000 (2224/sec)
+2026-03-23 05:14:54,526 INFO stress_test:   Synapses: 2000000/3000000 (2246/sec)
+2026-03-23 05:15:30,619 INFO stress_test:   Synapses: 2100000/3000000 (2266/sec)
+2026-03-23 05:16:06,484 INFO stress_test:   Synapses: 2200000/3000000 (2286/sec)
+2026-03-23 05:16:50,112 INFO stress_test:   Synapses: 2300000/3000000 (2286/sec)
+2026-03-23 05:17:32,184 INFO stress_test:   Synapses: 2400000/3000000 (2290/sec)
+2026-03-23 05:18:12,658 INFO stress_test:   Synapses: 2500000/3000000 (2296/sec)
+2026-03-23 05:18:47,722 INFO stress_test:   Synapses: 2600000/3000000 (2314/sec)
+2026-03-23 05:19:24,005 INFO stress_test:   Synapses: 2700000/3000000 (2327/sec)
+2026-03-23 05:19:59,054 INFO stress_test:   Synapses: 2800000/3000000 (2343/sec)
+2026-03-23 05:20:34,565 INFO stress_test:   Synapses: 2900000/3000000 (2357/sec)
+2026-03-23 05:21:11,186 INFO stress_test:   Synapses: 3000000/3000000 (2367/sec)
+2026-03-23 05:21:11,186 INFO stress_test:   SYNAPSE DONE: 3000000 in 1267.3s (2367/sec), 0 errors
+2026-03-23 05:21:11,187 INFO stress_test: === FIBER BENCHMARK: 50 fibers ===
+2026-03-23 05:21:11,307 INFO stress_test:   FIBER DONE: 50 in 0.1s
+2026-03-23 05:21:11,307 INFO stress_test: === FLUSH BENCHMARK ===
+2026-03-23 05:21:24,289 INFO stress_test:   FLUSH DONE: 12.98s
+2026-03-23 05:21:24,289 INFO stress_test:   DISK: 3858.2 MB total (raw vectors alone: 1464.8 MB)
+2026-03-23 05:21:24,290 INFO stress_test: === SEARCH BENCHMARK: 100 iterations per k ===
+2026-03-23 05:21:24,506 INFO stress_test:   k=10: p50=2.0ms, p95=2.9ms, p99=3.3ms
+2026-03-23 05:21:25,180 INFO stress_test:   k=50: p50=6.5ms, p95=8.2ms, p99=9.2ms
+2026-03-23 05:21:26,464 INFO stress_test:   k=100: p50=12.7ms, p95=15.8ms, p99=17.5ms
+2026-03-23 05:21:26,464 INFO stress_test: === BFS BENCHMARK ===
+2026-03-23 05:21:26,471 INFO stress_test:   depth=1: p50=0.1ms, p95=0.2ms, avg_nodes=6
+2026-03-23 05:21:26,482 INFO stress_test:   depth=2: p50=0.2ms, p95=0.4ms, avg_nodes=44
+2026-03-23 05:21:26,509 INFO stress_test:   depth=3: p50=0.5ms, p95=1.0ms, avg_nodes=272
+2026-03-23 05:21:26,510 INFO stress_test: === MULTI-DIM QUERY BENCHMARK ===
+2026-03-23 05:21:26,510 ERROR stress_test: BENCHMARK FAILED: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+Traceback (most recent call last):
+  File "D:\Project\Neural Memory Pro\benchmarks\stress_test.py", line 509, in run_benchmark
+    raw_mb = (neuron_count * dims * 4) / 1024 / 1024  # float32 vectors alone
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Project\Neural Memory Pro\benchmarks\stress_test.py", line 414, in benchmark_query
+    new_vec /= np.linalg.norm(new_vec)
+    
+ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+2026-03-23 05:21:33,566 INFO neural_memory_pro.infinitydb.engine: InfinityDB closed: brain=bench-1000k
+2026-03-23 05:21:33,575 INFO stress_test: 
+
+>>> STARTING 2M NEURON BENCHMARK <<<
+
+2026-03-23 05:21:33,575 INFO stress_test: 
+============================================================
+2026-03-23 05:21:33,575 INFO stress_test: STARTING BENCHMARK: 2000000 neurons
+2026-03-23 05:21:33,575 INFO stress_test: ============================================================
+2026-03-23 05:21:33,584 INFO neural_memory_pro.infinitydb.engine: InfinityDB opened: brain=bench-2000k, neurons=0, synapses=0, fibers=0, dims=384
+2026-03-23 05:21:33,584 INFO stress_test: === INSERT BENCHMARK: 2000000 neurons ===
+2026-03-23 05:22:13,323 INFO stress_test:   Inserted 100000/2000000 (2516 neurons/sec, RSS=546MB)
+2026-03-23 05:23:12,070 INFO stress_test:   Inserted 200000/2000000 (2031 neurons/sec, RSS=1028MB)
+2026-03-23 05:24:10,180 INFO stress_test:   Inserted 300000/2000000 (1916 neurons/sec, RSS=1676MB)
+2026-03-23 05:25:07,733 INFO stress_test:   Inserted 400000/2000000 (1868 neurons/sec, RSS=1987MB)
+2026-03-23 05:26:08,064 INFO stress_test:   Inserted 500000/2000000 (1822 neurons/sec, RSS=2244MB)
+2026-03-23 05:27:40,012 INFO stress_test:   Inserted 600000/2000000 (1637 neurons/sec, RSS=3277MB)
+2026-03-23 05:29:12,006 INFO stress_test:   Inserted 700000/2000000 (1527 neurons/sec, RSS=3650MB)
+2026-03-23 05:30:42,478 INFO stress_test:   Inserted 800000/2000000 (1457 neurons/sec, RSS=3907MB)
+2026-03-23 05:32:18,317 INFO stress_test:   Inserted 900000/2000000 (1396 neurons/sec, RSS=4166MB)
+2026-03-23 05:33:39,903 INFO stress_test:   Inserted 1000000/2000000 (1377 neurons/sec, RSS=4424MB)
+2026-03-23 05:34:57,312 INFO stress_test:   Inserted 1100000/2000000 (1369 neurons/sec, RSS=6234MB)
+2026-03-23 05:35:57,599 INFO stress_test:   Inserted 1200000/2000000 (1389 neurons/sec, RSS=6492MB)
+2026-03-23 05:37:01,840 INFO stress_test:   Inserted 1300000/2000000 (1400 neurons/sec, RSS=6907MB)
+2026-03-23 05:38:07,993 INFO stress_test:   Inserted 1400000/2000000 (1408 neurons/sec, RSS=7234MB)
+2026-03-23 05:39:05,582 INFO stress_test:   Inserted 1500000/2000000 (1426 neurons/sec, RSS=7492MB)
+2026-03-23 05:40:10,750 INFO stress_test:   Inserted 1600000/2000000 (1432 neurons/sec, RSS=7750MB)
+2026-03-23 05:41:21,133 INFO stress_test:   Inserted 1700000/2000000 (1432 neurons/sec, RSS=8008MB)
+2026-03-23 05:42:28,201 INFO stress_test:   Inserted 1800000/2000000 (1435 neurons/sec, RSS=8266MB)
+2026-03-23 05:43:32,491 INFO stress_test:   Inserted 1900000/2000000 (1441 neurons/sec, RSS=8524MB)
+2026-03-23 05:44:42,610 INFO stress_test:   Inserted 2000000/2000000 (1440 neurons/sec, RSS=8783MB)
+2026-03-23 05:44:42,610 INFO stress_test:   INSERT DONE: 2000000 neurons in 1389.0s (1440/sec), p50=3014.3ms, p95=5538.2ms
+2026-03-23 05:44:42,612 INFO stress_test: === SYNAPSE BENCHMARK: 6000000 synapses ===
+2026-03-23 05:45:22,626 INFO stress_test:   Synapses: 100000/6000000 (2499/sec)
+2026-03-23 05:46:01,113 INFO stress_test:   Synapses: 200000/6000000 (2548/sec)
+2026-03-23 05:46:43,205 INFO stress_test:   Synapses: 300000/6000000 (2488/sec)
+2026-03-23 05:47:26,179 INFO stress_test:   Synapses: 400000/6000000 (2445/sec)
+2026-03-23 05:48:06,355 INFO stress_test:   Synapses: 500000/6000000 (2454/sec)
+2026-03-23 05:48:42,494 INFO stress_test:   Synapses: 600000/6000000 (2501/sec)
+2026-03-23 05:49:18,505 INFO stress_test:   Synapses: 700000/6000000 (2537/sec)
+2026-03-23 05:49:53,393 INFO stress_test:   Synapses: 800000/6000000 (2574/sec)
+2026-03-23 05:50:28,793 INFO stress_test:   Synapses: 900000/6000000 (2600/sec)
+2026-03-23 05:51:05,724 INFO stress_test:   Synapses: 1000000/6000000 (2610/sec)
+2026-03-23 05:51:42,000 INFO stress_test:   Synapses: 1100000/6000000 (2623/sec)
+2026-03-23 05:52:19,127 INFO stress_test:   Synapses: 1200000/6000000 (2629/sec)
+2026-03-23 05:53:05,267 INFO stress_test:   Synapses: 1300000/6000000 (2586/sec)
+2026-03-23 05:53:45,305 INFO stress_test:   Synapses: 1400000/6000000 (2580/sec)
+2026-03-23 05:54:24,323 INFO stress_test:   Synapses: 1500000/6000000 (2579/sec)
+2026-03-23 05:54:59,433 INFO stress_test:   Synapses: 1600000/6000000 (2594/sec)
+2026-03-23 05:55:35,363 INFO stress_test:   Synapses: 1700000/6000000 (2604/sec)
+2026-03-23 05:56:12,060 INFO stress_test:   Synapses: 1800000/6000000 (2611/sec)
+2026-03-23 05:56:47,138 INFO stress_test:   Synapses: 1900000/6000000 (2622/sec)
+2026-03-23 05:57:22,885 INFO stress_test:   Synapses: 2000000/6000000 (2631/sec)
+2026-03-23 05:57:58,441 INFO stress_test:   Synapses: 2100000/6000000 (2639/sec)
+2026-03-23 05:58:35,422 INFO stress_test:   Synapses: 2200000/6000000 (2642/sec)
+2026-03-23 05:59:17,948 INFO stress_test:   Synapses: 2300000/6000000 (2628/sec)
+2026-03-23 05:59:57,690 INFO stress_test:   Synapses: 2400000/6000000 (2623/sec)
+2026-03-23 06:00:35,172 INFO stress_test:   Synapses: 2500000/6000000 (2625/sec)
+2026-03-23 06:01:10,399 INFO stress_test:   Synapses: 2600000/6000000 (2632/sec)
+2026-03-23 06:01:47,377 INFO stress_test:   Synapses: 2700000/6000000 (2635/sec)
+2026-03-23 06:02:22,455 INFO stress_test:   Synapses: 2800000/6000000 (2642/sec)
+2026-03-23 06:02:58,904 INFO stress_test:   Synapses: 2900000/6000000 (2645/sec)
+2026-03-23 06:03:33,877 INFO stress_test:   Synapses: 3000000/6000000 (2652/sec)
+2026-03-23 06:04:08,653 INFO stress_test:   Synapses: 3100000/6000000 (2659/sec)
+2026-03-23 06:04:49,641 INFO stress_test:   Synapses: 3200000/6000000 (2651/sec)
+2026-03-23 06:05:30,459 INFO stress_test:   Synapses: 3300000/6000000 (2645/sec)
+2026-03-23 06:06:10,113 INFO stress_test:   Synapses: 3400000/6000000 (2641/sec)
+2026-03-23 06:06:45,263 INFO stress_test:   Synapses: 3500000/6000000 (2646/sec)
+2026-03-23 06:07:20,596 INFO stress_test:   Synapses: 3600000/6000000 (2651/sec)
+2026-03-23 06:07:55,438 INFO stress_test:   Synapses: 3700000/6000000 (2656/sec)
+2026-03-23 06:08:31,171 INFO stress_test:   Synapses: 3800000/6000000 (2660/sec)
+2026-03-23 06:09:06,561 INFO stress_test:   Synapses: 3900000/6000000 (2664/sec)
+2026-03-23 06:09:41,340 INFO stress_test:   Synapses: 4000000/6000000 (2669/sec)
+2026-03-23 06:10:17,204 INFO stress_test:   Synapses: 4100000/6000000 (2672/sec)
+2026-03-23 06:11:02,910 INFO stress_test:   Synapses: 4200000/6000000 (2658/sec)
+2026-03-23 06:11:42,937 INFO stress_test:   Synapses: 4300000/6000000 (2654/sec)
+2026-03-23 06:12:20,810 INFO stress_test:   Synapses: 4400000/6000000 (2653/sec)
+2026-03-23 06:12:55,525 INFO stress_test:   Synapses: 4500000/6000000 (2658/sec)
+2026-03-23 06:13:29,567 INFO stress_test:   Synapses: 4600000/6000000 (2664/sec)
+2026-03-23 06:14:03,626 INFO stress_test:   Synapses: 4700000/6000000 (2669/sec)
+2026-03-23 06:14:38,518 INFO stress_test:   Synapses: 4800000/6000000 (2673/sec)
+2026-03-23 06:15:13,960 INFO stress_test:   Synapses: 4900000/6000000 (2676/sec)
+2026-03-23 06:15:50,182 INFO stress_test:   Synapses: 5000000/6000000 (2677/sec)
+2026-03-23 06:16:33,276 INFO stress_test:   Synapses: 5100000/6000000 (2669/sec)
+2026-03-23 06:17:17,651 INFO stress_test:   Synapses: 5200000/6000000 (2660/sec)
+2026-03-23 06:17:58,122 INFO stress_test:   Synapses: 5300000/6000000 (2656/sec)
+2026-03-23 06:18:39,404 INFO stress_test:   Synapses: 5400000/6000000 (2651/sec)
+2026-03-23 06:19:18,929 INFO stress_test:   Synapses: 5500000/6000000 (2649/sec)
+2026-03-23 06:19:59,687 INFO stress_test:   Synapses: 5600000/6000000 (2645/sec)
+2026-03-23 06:20:38,507 INFO stress_test:   Synapses: 5700000/6000000 (2644/sec)
+2026-03-23 06:21:17,360 INFO stress_test:   Synapses: 5800000/6000000 (2643/sec)
+2026-03-23 06:21:52,352 INFO stress_test:   Synapses: 5900000/6000000 (2648/sec)
+2026-03-23 06:22:20,383 INFO stress_test:   Synapses: 6000000/6000000 (2660/sec)
+2026-03-23 06:22:20,383 INFO stress_test:   SYNAPSE DONE: 6000000 in 2256.0s (2660/sec), 0 errors
+2026-03-23 06:22:20,383 INFO stress_test: === FIBER BENCHMARK: 50 fibers ===
+2026-03-23 06:22:20,469 INFO stress_test:   FIBER DONE: 50 in 0.1s
+2026-03-23 06:22:20,469 INFO stress_test: === FLUSH BENCHMARK ===
+2026-03-23 06:22:46,388 INFO stress_test:   FLUSH DONE: 25.92s
+2026-03-23 06:22:46,388 INFO stress_test:   DISK: 7718.3 MB total (raw vectors alone: 2929.7 MB)
+2026-03-23 06:22:46,388 INFO stress_test: === SEARCH BENCHMARK: 100 iterations per k ===
+2026-03-23 06:22:46,573 INFO stress_test:   k=10: p50=1.6ms, p95=3.1ms, p99=7.1ms
+2026-03-23 06:22:47,120 INFO stress_test:   k=50: p50=4.4ms, p95=10.8ms, p99=15.4ms
+2026-03-23 06:22:47,925 INFO stress_test:   k=100: p50=7.7ms, p95=10.5ms, p99=16.6ms
+2026-03-23 06:22:47,926 INFO stress_test: === BFS BENCHMARK ===
+2026-03-23 06:22:47,932 INFO stress_test:   depth=1: p50=0.1ms, p95=0.2ms, avg_nodes=7
+2026-03-23 06:22:47,938 INFO stress_test:   depth=2: p50=0.1ms, p95=0.2ms, avg_nodes=42
+2026-03-23 06:22:47,960 INFO stress_test:   depth=3: p50=0.4ms, p95=0.9ms, avg_nodes=261
+2026-03-23 06:22:47,960 INFO stress_test: === MULTI-DIM QUERY BENCHMARK ===
+2026-03-23 06:22:47,960 ERROR stress_test: BENCHMARK FAILED: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+Traceback (most recent call last):
+  File "D:\Project\Neural Memory Pro\benchmarks\stress_test.py", line 509, in run_benchmark
+    raw_mb = (neuron_count * dims * 4) / 1024 / 1024  # float32 vectors alone
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Project\Neural Memory Pro\benchmarks\stress_test.py", line 414, in benchmark_query
+    new_vec /= np.linalg.norm(new_vec)
+    
+ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+2026-03-23 06:22:59,876 INFO neural_memory_pro.infinitydb.engine: InfinityDB closed: brain=bench-2000k
+2026-03-23 06:22:59,877 INFO stress_test: 
+============================================================
+2026-03-23 06:22:59,877 INFO stress_test: ALL BENCHMARKS COMPLETE
+2026-03-23 06:22:59,877 INFO stress_test: Results saved to: D:\Project\Neural Memory Pro\benchmarks\results\stress_test_20260322_215132.json
+2026-03-23 06:22:59,878 INFO stress_test: ============================================================
+INFO stress_test:   Synapses: 4700000/6000000 (2093/sec)
+2026-03-23 06:12:15,988 INFO stress_test:   Synapses: 4800000/6000000 (2101/sec)
+2026-03-23 06:12:51,980 INFO stress_test:   Synapses: 4900000/6000000 (2111/sec)
+2026-03-23 06:13:26,917 INFO stress_test:   Synapses: 5000000/6000000 (2122/sec)
+2026-03-23 06:14:01,949 INFO stress_test:   Synapses: 5100000/6000000 (2133/sec)
+2026-03-23 06:14:38,059 INFO stress_test:   Synapses: 5200000/6000000 (2143/sec)
+2026-03-23 06:15:15,141 INFO stress_test:   Synapses: 5300000/6000000 (2151/sec)
+2026-03-23 06:15:52,296 INFO stress_test:   Synapses: 5400000/6000000 (2159/sec)
+2026-03-23 06:16:37,241 INFO stress_test:   Synapses: 5500000/6000000 (2160/sec)
+2026-03-23 06:17:23,950 INFO stress_test:   Synapses: 5600000/6000000 (2160/sec)
+2026-03-23 06:18:07,014 INFO stress_test:   Synapses: 5700000/6000000 (2163/sec)
+2026-03-23 06:18:49,466 INFO stress_test:   Synapses: 5800000/6000000 (2166/sec)
+2026-03-23 06:19:31,191 INFO stress_test:   Synapses: 5900000/6000000 (2169/sec)
+2026-03-23 06:20:13,354 INFO stress_test:   Synapses: 6000000/6000000 (2172/sec)
+2026-03-23 06:20:13,354 INFO stress_test:   SYNAPSE DONE: 6000000 in 2762.2s (2172/sec), 0 errors
+2026-03-23 06:20:13,354 INFO stress_test: === FIBER BENCHMARK: 50 fibers ===
+2026-03-23 06:20:13,450 INFO stress_test:   FIBER DONE: 50 in 0.1s
+2026-03-23 06:20:13,450 INFO stress_test: === FLUSH BENCHMARK ===
+2026-03-23 06:20:40,399 INFO stress_test:   FLUSH DONE: 26.95s
+2026-03-23 06:20:40,400 INFO stress_test:   DISK: 2216.8 MB total (raw vectors alone: 244.1 MB)
+2026-03-23 06:20:40,400 INFO stress_test: === SEARCH BENCHMARK: 100 iterations per k ===
+2026-03-23 06:20:40,641 INFO stress_test:   k=10: p50=2.2ms, p95=3.9ms, p99=4.3ms
+2026-03-23 06:20:41,466 INFO stress_test:   k=50: p50=8.0ms, p95=10.5ms, p99=12.9ms
+2026-03-23 06:20:42,977 INFO stress_test:   k=100: p50=14.6ms, p95=18.9ms, p99=20.4ms
+2026-03-23 06:20:42,977 INFO stress_test: === BFS BENCHMARK ===
+2026-03-23 06:20:42,987 INFO stress_test:   depth=1: p50=0.2ms, p95=0.3ms, avg_nodes=7
+2026-03-23 06:20:43,002 INFO stress_test:   depth=2: p50=0.3ms, p95=0.5ms, avg_nodes=46
+2026-03-23 06:20:43,035 INFO stress_test:   depth=3: p50=0.6ms, p95=1.0ms, avg_nodes=256
+2026-03-23 06:20:43,035 INFO stress_test: === MULTI-DIM QUERY BENCHMARK ===
+2026-03-23 06:20:43,035 ERROR stress_test: BENCHMARK FAILED: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+Traceback (most recent call last):
+  File "D:\Project\Neural Memory Pro\benchmarks\stress_test.py", line 524, in run_benchmark
+    all_results["query"] = await benchmark_query(db, neuron_count, dims, rng)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Project\Neural Memory Pro\benchmarks\stress_test.py", line 428, in benchmark_query
+    current_plan = QueryPlan(**{k: v for k, v in plan_dict.items() if v is not None and v != 0.0 and v != []})
+                                                                                        ^^^^^^^^
+ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+2026-03-23 06:20:53,447 INFO neural_memory_pro.infinitydb.engine: InfinityDB closed: brain=bench-2M_32D
+2026-03-23 06:20:53,459 INFO stress_test: 
+============================================================
+2026-03-23 06:20:53,459 INFO stress_test: ALL BENCHMARKS COMPLETE
+2026-03-23 06:20:53,459 INFO stress_test: Results saved to: D:\Project\Neural Memory Pro\benchmarks\results\stress_test_20260322_215538.json
+2026-03-23 06:20:53,459 INFO stress_test: ============================================================
