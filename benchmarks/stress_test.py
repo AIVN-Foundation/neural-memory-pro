@@ -424,8 +424,17 @@ async def benchmark_query(
                     "recency_weight": plan.recency_weight,
                     "limit": plan.limit,
                 }
-                # Filter out None/default values
-                current_plan = QueryPlan(**{k: v for k, v in plan_dict.items() if v is not None and v != 0.0 and v != []})
+                # Filter out None/default values (avoid numpy array truthiness)
+                filtered: dict[str, Any] = {}
+                for k, v in plan_dict.items():
+                    if v is None:
+                        continue
+                    if isinstance(v, (int, float)) and v == 0.0:
+                        continue
+                    if isinstance(v, list) and len(v) == 0:
+                        continue
+                    filtered[k] = v
+                current_plan = QueryPlan(**filtered)
             else:
                 current_plan = plan
 
