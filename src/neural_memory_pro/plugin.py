@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from neural_memory.plugins.base import ProPlugin
 
@@ -38,3 +39,13 @@ class NMProPlugin(ProPlugin):
         return {
             "smart_merge": smart_merge,
         }
+
+    def get_tools(self) -> list[dict[str, Any]]:
+        from neural_memory_pro.mcp_tools import PRO_TOOL_SCHEMAS
+
+        return list(PRO_TOOL_SCHEMAS)
+
+    def get_tool_handler(self, tool_name: str) -> Callable[..., Any] | None:
+        from neural_memory_pro.mcp_tools import TOOL_HANDLERS
+
+        return TOOL_HANDLERS.get(tool_name)
