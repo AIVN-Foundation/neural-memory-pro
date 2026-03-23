@@ -1,9 +1,8 @@
 """Directional compression — Pro-grade memory compression.
 
-Extends the base anisotropic compression with multi-axis preservation:
-preserves semantic direction along MULTIPLE reference embeddings,
-not just the primary anchor. This prevents information loss when a
-memory relates to several concepts.
+Multi-axis directional compression preserves semantic direction along
+MULTIPLE reference embeddings, not just the primary anchor. This prevents
+information loss when a memory relates to several concepts.
 
 Free version: single-axis anisotropic (preserves direction to 1 anchor)
 Pro version: multi-axis (preserves direction to top-K related neurons)
@@ -12,14 +11,17 @@ Pro version: multi-axis (preserves direction to top-K related neurons)
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 
 async def directional_compress(
     content: str,
-    level: Any,  # FidelityLevel
+    level: str,
     embed_fn: Any,
     *,
     reference_embeddings: list[list[float]] | None = None,
@@ -32,32 +34,29 @@ async def directional_compress(
 
     Args:
         content: Source text to compress.
-        level: FidelityLevel (FULL, SUMMARY, ESSENCE, GHOST).
-        embed_fn: Async embedding function.
+        level: "full", "summary", "essence", or "ghost".
+        embed_fn: Async embedding function (str -> list[float]).
         reference_embeddings: Optional pre-computed reference vectors.
         max_axes: Maximum reference axes to preserve (default 3).
 
     Returns:
         Compressed text preserving multi-directional semantics.
     """
-    import numpy as np
-
-    from neural_memory.engine.fidelity import FidelityLevel
+    level_lower = level.lower() if isinstance(level, str) else "summary"
 
     # FULL level = no compression
-    if level == FidelityLevel.FULL:
+    if level_lower == "full":
         return content
 
     # GHOST level = minimal stub
-    if level == FidelityLevel.GHOST:
+    if level_lower == "ghost":
         words = content.split()
         return " ".join(words[:5]) + "..." if len(words) > 5 else content
 
     # Get content embedding
     content_vec = await embed_fn(content)
     if not content_vec:
-        # Fallback to basic compression
-        return _basic_compress(content, level)
+        return _basic_compress(content, level_lower)
 
     content_arr = np.array(content_vec, dtype=np.float32)
 
@@ -98,9 +97,9 @@ async def directional_compress(
     # Sort by importance, keep based on level
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    if level == FidelityLevel.SUMMARY:
+    if level_lower == "summary":
         keep = max(1, len(scored) * 2 // 3)  # Keep ~66%
-    else:  # ESSENCE
+    else:  # essence
         keep = max(1, len(scored) // 3)  # Keep ~33%
 
     kept = scored[:keep]
@@ -111,12 +110,10 @@ async def directional_compress(
     return " ".join(result)
 
 
-def _cosine_sim(a: Any, b: Any) -> float:
+def _cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
     """Cosine similarity between two numpy arrays."""
-    import numpy as np
-
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
+    norm_a = float(np.linalg.norm(a))
+    norm_b = float(np.linalg.norm(b))
     if norm_a < 1e-10 or norm_b < 1e-10:
         return 0.0
     return float(np.dot(a, b) / (norm_a * norm_b))
@@ -124,17 +121,15 @@ def _cosine_sim(a: Any, b: Any) -> float:
 
 def _split_sentences(text: str) -> list[str]:
     """Split text into sentences (simple heuristic)."""
-    import re
-
     sentences = re.split(r"(?<=[.!?])\s+", text.strip())
     return [s.strip() for s in sentences if s.strip()]
 
 
-def _basic_compress(content: str, level: Any) -> str:
+def _basic_compress(content: str, level: str) -> str:
     """Fallback compression without embeddings."""
     words = content.split()
-    if level.name == "SUMMARY":
+    if level == "summary":
         keep = max(1, len(words) * 2 // 3)
-    else:  # ESSENCE
+    else:  # essence
         keep = max(1, len(words) // 3)
     return " ".join(words[:keep]) + ("..." if keep < len(words) else "")

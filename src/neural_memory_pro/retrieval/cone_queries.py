@@ -1,14 +1,14 @@
-"""Cone queries — exhaustive recall via embedding similarity cones.
+"""Cone queries — exhaustive recall via HNSW + threshold filtering.
 
-Free recall truncates results to top-N. Cone queries return ALL memories
-within a cosine similarity cone around the query embedding, ensuring
-no relevant memory is missed.
+Pro cone queries use HNSW approximate nearest neighbor search instead of
+brute-force O(N) scanning. Retrieves a generous k candidates from HNSW,
+then filters by cosine similarity threshold to form the cone.
 
 Algorithm:
 1. Embed the query
-2. Compute cosine similarity against ALL neuron embeddings in brain
-3. Return everything above the cone threshold (adaptive or fixed)
-4. Rank by combined score: similarity * activation_level * freshness
+2. HNSW search for top-k candidates (k = max_results * 2 for safety margin)
+3. Filter by cone threshold (cosine similarity >= threshold)
+4. Rank by combined score: similarity * 0.7 + activation * 0.3
 """
 
 from __future__ import annotations
@@ -17,12 +17,15 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+from numpy.typing import NDArray
+
 if TYPE_CHECKING:
-    from neural_memory.storage.base import NeuralStorage
+    from neural_memory_pro.infinitydb.engine import InfinityDB
 
 logger = logging.getLogger(__name__)
 
-# Default cone half-angle as cosine threshold (cos(30°) ≈ 0.866)
+# Default cone threshold (cosine similarity)
 DEFAULT_CONE_THRESHOLD = 0.65
 
 
@@ -39,66 +42,37 @@ class ConeResult:
 
 
 async def cone_recall(
-    query: str,
-    storage: NeuralStorage,
-    embed_fn: Any,
+    query_embedding: list[float] | NDArray[np.float32],
+    db: InfinityDB,
     *,
     threshold: float = DEFAULT_CONE_THRESHOLD,
     max_results: int = 500,
-    boost_recent: bool = True,
 ) -> list[ConeResult]:
-    """Exhaustive cone recall — return ALL memories within similarity cone.
+    """HNSW-accelerated cone recall — return all memories within similarity cone.
 
     Args:
-        query: Search query string.
-        storage: Neural storage instance.
-        embed_fn: Async embedding function (str -> list[float]).
+        query_embedding: Pre-computed query embedding vector.
+        db: InfinityDB instance (must be open).
         threshold: Minimum cosine similarity (0-1). Lower = wider cone.
-        max_results: Safety cap to prevent unbounded results.
-        boost_recent: Boost recently activated neurons.
+        max_results: Safety cap for results.
 
     Returns:
         List of ConeResult sorted by combined_score descending.
     """
-    import numpy as np
+    # Search with generous k to capture the full cone
+    search_k = min(max_results * 3, db.neuron_count)
+    if search_k <= 0:
+        return []
 
-    # 1. Embed the query
-    query_vec = await embed_fn(query)
-    if not query_vec:
-        return []
-    query_arr = np.array(query_vec, dtype=np.float32)
-    query_norm = np.linalg.norm(query_arr)
-    if query_norm < 1e-10:
-        return []
-    query_arr = query_arr / query_norm
-
-    # 2. Get all neurons with embeddings
-    neurons = await storage.find_neurons(limit=10000)
-    if not neurons:
-        return []
+    candidates = await db.search_similar(query_embedding, k=search_k)
 
     results: list[ConeResult] = []
-
-    for neuron in neurons:
-        # Get embedding from neuron metadata or storage
-        embedding = getattr(neuron, "embedding", None)
-        if embedding is None:
-            continue
-
-        neuron_arr = np.array(embedding, dtype=np.float32)
-        neuron_norm = np.linalg.norm(neuron_arr)
-        if neuron_norm < 1e-10:
-            continue
-        neuron_arr = neuron_arr / neuron_norm
-
-        # 3. Cosine similarity
-        similarity = float(np.dot(query_arr, neuron_arr))
-
+    for candidate in candidates:
+        similarity = candidate.get("similarity", 0.0)
         if similarity < threshold:
-            continue
+            continue  # Outside the cone
 
-        # 4. Combined score
-        activation = getattr(neuron, "activation_level", 0.5)
+        activation = candidate.get("activation_level", 0.5)
         if not isinstance(activation, (int, float)):
             activation = 0.5
 
@@ -106,15 +80,14 @@ async def cone_recall(
 
         results.append(
             ConeResult(
-                neuron_id=neuron.id,
-                content=getattr(neuron, "content", ""),
+                neuron_id=candidate.get("id", ""),
+                content=candidate.get("content", ""),
                 similarity=round(similarity, 4),
                 activation=round(float(activation), 4),
                 combined_score=round(combined, 4),
-                neuron_type=getattr(neuron, "type", "unknown"),
+                neuron_type=candidate.get("type", "unknown"),
             )
         )
 
-    # Sort by combined score, cap results
     results.sort(key=lambda r: r.combined_score, reverse=True)
     return results[:max_results]
