@@ -22,6 +22,7 @@ from neural_memory_pro.infinitydb.graph_store import GraphStore
 from neural_memory_pro.infinitydb.hnsw_index import HNSWIndex
 from neural_memory_pro.infinitydb.metadata_store import MetadataStore
 from neural_memory_pro.infinitydb.query_planner import QueryExecutor, QueryPlan
+from neural_memory_pro.infinitydb.tier_manager import TierConfig, TierManager, TierStats
 from neural_memory_pro.infinitydb.vector_store import VectorStore
 from neural_memory_pro.infinitydb.wal import WALEntry, WALOp, WriteAheadLog
 
@@ -45,6 +46,7 @@ class InfinityDB:
         base_dir: str | Path,
         brain_id: str = "default",
         dimensions: int = 384,
+        tier_config: TierConfig | None = None,
     ) -> None:
         self._base_dir = Path(base_dir)
         self._brain_id = brain_id
@@ -57,6 +59,7 @@ class InfinityDB:
         self._graph = GraphStore(self._paths.graph)
         self._fibers = FiberStore(self._paths.fibers)
         self._wal = WriteAheadLog(self._paths.wal)
+        self._tier_manager = TierManager(dimensions, tier_config)
         self._is_open = False
 
     @property
@@ -350,7 +353,12 @@ class InfinityDB:
                     await asyncio.to_thread(self._vectors.delete, vec_slot)
                     raise
 
-        # Build metadata
+        # Build metadata with initial tier classification
+        initial_meta: dict[str, Any] = {
+            "priority": priority, "access_count": 0, "accessed_at": now,
+        }
+        tier = int(self._tier_manager.classify_neuron(initial_meta))
+
         meta: dict[str, Any] = {
             "id": nid,
             "type": neuron_type,
@@ -364,6 +372,7 @@ class InfinityDB:
             "ephemeral": ephemeral,
             "tags": list(tags) if tags else [],
             "vec_slot": vec_slot,
+            "tier": tier,
         }
 
         meta_slot = vec_slot if vec_slot >= 0 else self._metadata.next_free_slot()
@@ -468,11 +477,15 @@ class InfinityDB:
         return ids
 
     async def get_neuron(self, neuron_id: str) -> dict[str, Any] | None:
-        """Get a neuron by ID."""
+        """Get a neuron by ID. Auto-promotes tier on access."""
         result = await asyncio.to_thread(self._metadata.get_by_id, neuron_id)
         if result is None:
             return None
-        _, meta = result
+        slot, meta = result
+
+        # Auto-promote tier on access
+        await self._maybe_promote(slot, meta)
+
         return dict(meta)
 
     async def find_neurons(
@@ -502,7 +515,7 @@ class InfinityDB:
     # Allowlist of fields that can be updated via update_neuron
     _UPDATABLE_FIELDS = frozenset({
         "content", "type", "priority", "activation_level", "tags",
-        "ephemeral", "accessed_at", "access_count", "updated_at",
+        "ephemeral", "accessed_at", "access_count", "updated_at", "tier",
     })
 
     async def update_neuron(
@@ -850,6 +863,98 @@ class InfinityDB:
             "fiber_count": self._fibers.count,
             "dimensions": self._dimensions,
             "is_open": self._is_open,
+        }
+
+    # --- Tier Management ---
+
+    async def _maybe_promote(self, slot: int, meta: dict[str, Any]) -> None:
+        """Promote neuron tier if access pattern warrants it.
+
+        Updates accessed_at and access_count before classifying so the
+        tier decision reflects the current access, not stale state.
+        """
+        from neural_memory_pro.infinitydb.compressor import CompressionTier
+
+        # Update access stats before classifying
+        now = _utcnow()
+        access_count = meta.get("access_count", 0) + 1
+        await asyncio.to_thread(
+            self._metadata.update, slot,
+            {"accessed_at": now, "access_count": access_count},
+        )
+        meta["accessed_at"] = now
+        meta["access_count"] = access_count
+
+        current_tier_val = meta.get("tier", CompressionTier.ACTIVE)
+        try:
+            current_tier = CompressionTier(current_tier_val)
+        except (ValueError, TypeError):
+            current_tier = CompressionTier.ACTIVE
+
+        target = self._tier_manager.should_promote(meta, current_tier)
+        if target is not None and target != current_tier:
+            await asyncio.to_thread(
+                self._metadata.update, slot, {"tier": int(target)}
+            )
+            meta["tier"] = int(target)
+            logger.debug(
+                "Promoted neuron %s: %s → %s",
+                meta.get("id", "?"), current_tier.name, target.name,
+            )
+
+    async def demote_sweep(self) -> dict[str, int]:
+        """Scan all neurons and demote those whose tier should decrease.
+
+        Collects all demotion decisions first, then applies in a single
+        synchronous batch to avoid thread pool contention.
+
+        Returns dict of {tier_name: count_demoted}.
+        """
+        from neural_memory_pro.infinitydb.compressor import CompressionTier
+
+        all_neurons = await asyncio.to_thread(self._metadata.iter_all)
+
+        # Phase 1: classify (pure, no writes)
+        demotions: list[tuple[int, CompressionTier]] = []
+        for slot, meta in all_neurons:
+            current_tier_val = meta.get("tier", CompressionTier.ACTIVE)
+            try:
+                current_tier = CompressionTier(current_tier_val)
+            except (ValueError, TypeError):
+                current_tier = CompressionTier.ACTIVE
+
+            target = self._tier_manager.should_demote(meta, current_tier)
+            if target is not None and target != current_tier:
+                demotions.append((slot, target))
+
+        if not demotions:
+            return {}
+
+        # Phase 2: batch write
+        def _apply_demotions() -> None:
+            for slot, target in demotions:
+                self._metadata.update(slot, {"tier": int(target)})
+
+        await asyncio.to_thread(_apply_demotions)
+
+        # Count results
+        demoted: dict[str, int] = {}
+        for _, target in demotions:
+            demoted[target.name] = demoted.get(target.name, 0) + 1
+        logger.info("Demote sweep: %s", demoted)
+        return demoted
+
+    async def get_tier_stats(self) -> dict[str, Any]:
+        """Get tier distribution statistics and estimated savings."""
+        all_neurons = await asyncio.to_thread(self._metadata.iter_all)
+        metas = [meta for _, meta in all_neurons]
+
+        stats = self._tier_manager.compute_stats(metas)
+        savings = self._tier_manager.estimate_savings(stats)
+
+        return {
+            "tiers": stats.as_dict(),
+            "savings": savings,
         }
 
     # --- Multi-dimensional Query ---
