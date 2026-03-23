@@ -23,6 +23,7 @@ from neural_memory_pro.infinitydb.hnsw_index import HNSWIndex
 from neural_memory_pro.infinitydb.metadata_store import MetadataStore
 from neural_memory_pro.infinitydb.query_planner import QueryExecutor, QueryPlan
 from neural_memory_pro.infinitydb.vector_store import VectorStore
+from neural_memory_pro.infinitydb.wal import WALEntry, WALOp, WriteAheadLog
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ class InfinityDB:
         self._metadata = MetadataStore(self._paths.meta)
         self._graph = GraphStore(self._paths.graph)
         self._fibers = FiberStore(self._paths.fibers)
+        self._wal = WriteAheadLog(self._paths.wal)
         self._is_open = False
 
     @property
@@ -102,6 +104,10 @@ class InfinityDB:
             self._header = InfinityHeader(dimensions=self._dimensions)
             self._paths.header.write_bytes(self._header.to_bytes())
 
+        # Open WAL first — must be available before any store opens
+        # so crash during open sequence can be recovered
+        self._wal.open()
+
         # Open stores
         self._metadata.open()
         self._vectors.open()
@@ -111,6 +117,11 @@ class InfinityDB:
         # Open HNSW with capacity based on metadata count
         initial_cap = max(1024, self._metadata.count * 2)
         self._index.open(max_elements=initial_cap)
+        replayed = self._replay_wal()
+        if replayed > 0:
+            logger.info("WAL replay: %d entries recovered", replayed)
+            self._flush_sync()  # persist recovered state
+            self._wal.checkpoint()
 
         self._is_open = True
         logger.info(
@@ -132,6 +143,7 @@ class InfinityDB:
         self._index.close()
         self._graph.close()
         self._fibers.close()
+        self._wal.close()
         self._is_open = False
         logger.info("InfinityDB closed: brain=%s", self._brain_id)
 
@@ -146,6 +158,9 @@ class InfinityDB:
         self._index.save()
         self._graph.flush()
         self._fibers.flush()
+        # Checkpoint WAL after all stores are persisted
+        if self._wal.is_open:
+            self._wal.checkpoint()
 
     def _flush_header(self) -> None:
         header = InfinityHeader(
@@ -157,6 +172,137 @@ class InfinityDB:
             synapse_count=self._graph.edge_count,
         )
         self._paths.header.write_bytes(header.to_bytes())
+
+    # --- WAL Replay ---
+
+    def _replay_wal(self) -> int:
+        """Replay pending WAL entries for crash recovery.
+
+        Each operation is idempotent: duplicate adds are skipped,
+        deletes on missing IDs are no-ops.
+        Returns the number of entries replayed.
+        """
+        entries = self._wal.get_pending_entries()
+        if not entries:
+            return 0
+
+        replayed = 0
+        for entry in entries:
+            try:
+                self._replay_entry(entry)
+                replayed += 1
+            except Exception as e:
+                logger.warning(
+                    "WAL replay failed at seq=%d op=%s: %s",
+                    entry.seq, entry.op.name, e,
+                )
+        return replayed
+
+    def _replay_entry(self, entry: WALEntry) -> None:
+        """Replay a single WAL entry idempotently."""
+        p = entry.payload
+
+        if entry.op == WALOp.ADD_NEURON:
+            nid = p["id"]
+            # Skip if already exists (idempotent)
+            if self._metadata.get_by_id(nid) is not None:
+                return
+            vec_slot = -1
+            embedding = p.get("embedding")
+            if embedding is not None:
+                vec = np.asarray(embedding, dtype=np.float32)
+                if vec.shape == (self._dimensions,):
+                    vec_slot = self._vectors.add(vec)
+                    self._index.add(vec_slot, vec)
+            meta = {
+                "id": nid,
+                "type": p.get("type", "fact"),
+                "content": p.get("content", ""),
+                "priority": p.get("priority", 5),
+                "activation_level": p.get("activation_level", 1.0),
+                "created_at": p.get("created_at", entry.timestamp),
+                "updated_at": p.get("updated_at", entry.timestamp),
+                "accessed_at": p.get("accessed_at", entry.timestamp),
+                "access_count": p.get("access_count", 0),
+                "ephemeral": p.get("ephemeral", False),
+                "tags": p.get("tags", []),
+                "vec_slot": vec_slot,
+            }
+            slot = vec_slot if vec_slot >= 0 else self._metadata.next_free_slot()
+            self._metadata.add(slot, meta)
+
+        elif entry.op == WALOp.DELETE_NEURON:
+            nid = p["id"]
+            result = self._metadata.get_by_id(nid)
+            if result is None:
+                return  # Already deleted
+            slot, meta = result
+            vec_slot = meta.get("vec_slot", -1)
+            if vec_slot >= 0:
+                self._vectors.delete(vec_slot)
+                self._index.delete(vec_slot)
+            self._graph.delete_neuron_edges(nid)
+            self._fibers.remove_neuron_from_all(nid)
+            self._metadata.delete(slot)
+
+        elif entry.op == WALOp.UPDATE_NEURON:
+            nid = p["id"]
+            result = self._metadata.get_by_id(nid)
+            if result is None:
+                return  # Neuron gone, skip
+            slot, meta = result
+            updates = {k: v for k, v in p.get("updates", {}).items()
+                       if k in self._UPDATABLE_FIELDS}
+            # Replay embedding update if present
+            embedding = p.get("embedding")
+            if embedding is not None:
+                vec = np.asarray(embedding, dtype=np.float32)
+                if vec.shape == (self._dimensions,):
+                    old_slot = meta.get("vec_slot", -1)
+                    new_slot = self._vectors.add(vec)
+                    self._index.add(new_slot, vec)
+                    if old_slot >= 0:
+                        self._index.delete(old_slot)
+                        self._vectors.delete(old_slot)
+                    updates["vec_slot"] = new_slot
+            if updates:
+                self._metadata.update(slot, updates)
+
+        elif entry.op == WALOp.ADD_SYNAPSE:
+            # Idempotent: skip if edge already exists
+            eid = p.get("edge_id")
+            if eid and self._graph.get_edge_by_id(eid) is not None:
+                return
+            self._graph.add_edge(
+                p["source_id"], p["target_id"],
+                edge_type=p.get("edge_type", "related"),
+                weight=p.get("weight", 1.0),
+                edge_id=eid,
+                metadata=p.get("metadata"),
+            )
+
+        elif entry.op == WALOp.DELETE_SYNAPSE:
+            eid = p.get("edge_id")
+            if eid:
+                self._graph.delete_edge(eid)  # no-op if already deleted
+
+        elif entry.op == WALOp.ADD_FIBER:
+            fid = p.get("fiber_id")
+            if fid and self._fibers.get_fiber(fid) is not None:
+                return  # already exists
+            self._fibers.add_fiber(
+                p.get("name", ""),
+                fiber_id=fid,
+                fiber_type=p.get("fiber_type", "cluster"),
+                description=p.get("description", ""),
+                neuron_ids=p.get("neuron_ids"),
+                metadata=p.get("metadata"),
+            )
+
+        elif entry.op == WALOp.DELETE_FIBER:
+            fid = p.get("fiber_id")
+            if fid:
+                self._fibers.delete_fiber(fid)  # no-op if already deleted
 
     # --- Neuron CRUD ---
 
@@ -178,6 +324,18 @@ class InfinityDB:
         """
         nid = neuron_id or str(uuid.uuid4())
         now = _utcnow()
+
+        # WAL: log before write
+        wal_payload: dict[str, Any] = {
+            "id": nid, "type": neuron_type, "content": content,
+            "priority": priority, "activation_level": activation_level,
+            "created_at": now, "updated_at": now, "accessed_at": now,
+            "access_count": 0, "ephemeral": ephemeral,
+            "tags": list(tags) if tags else [],
+        }
+        if embedding is not None:
+            wal_payload["embedding"] = np.asarray(embedding, dtype=np.float32).tolist()
+        await asyncio.to_thread(self._wal.append, WALOp.ADD_NEURON, wal_payload)
 
         # Store vector if embedding provided
         vec_slot = -1
@@ -239,9 +397,32 @@ class InfinityDB:
         vec_arrays: list[NDArray[np.float32]] = []
         committed_meta_slots: list[int] = []
 
+        # Pre-resolve IDs and WAL-log all neurons before writing any data
+        resolved_ids: list[str] = []
+        for neuron in neurons:
+            nid = neuron.get("neuron_id") or str(uuid.uuid4())
+            resolved_ids.append(nid)
+            wal_payload: dict[str, Any] = {
+                "id": nid,
+                "type": neuron.get("neuron_type", "fact"),
+                "content": neuron.get("content", ""),
+                "priority": neuron.get("priority", 5),
+                "activation_level": neuron.get("activation_level", 1.0),
+                "created_at": now, "updated_at": now, "accessed_at": now,
+                "access_count": 0,
+                "ephemeral": neuron.get("ephemeral", False),
+                "tags": list(neuron.get("tags", [])),
+            }
+            embedding = neuron.get("embedding")
+            if embedding is not None:
+                wal_payload["embedding"] = np.asarray(
+                    embedding, dtype=np.float32
+                ).tolist()
+            self._wal.append(WALOp.ADD_NEURON, wal_payload)
+
         try:
-            for neuron in neurons:
-                nid = neuron.get("neuron_id") or str(uuid.uuid4())
+            for i, neuron in enumerate(neurons):
+                nid = resolved_ids[i]
                 embedding = neuron.get("embedding")
                 vec_slot = -1
 
@@ -341,6 +522,7 @@ class InfinityDB:
         if result is None:
             return False
 
+        # Build updates dict first so we can WAL-log it
         slot, meta = result
         updates: dict[str, Any] = {"updated_at": _utcnow()}
 
@@ -356,6 +538,14 @@ class InfinityDB:
             updates["tags"] = list(tags)
         if ephemeral is not None:
             updates["ephemeral"] = ephemeral
+
+        # WAL: log BEFORE any mutation (crash safety)
+        wal_payload: dict[str, Any] = {"id": neuron_id, "updates": dict(updates)}
+        if embedding is not None:
+            wal_payload["embedding"] = np.asarray(embedding, dtype=np.float32).tolist()
+        await asyncio.to_thread(
+            self._wal.append, WALOp.UPDATE_NEURON, wal_payload,
+        )
 
         # Update vector if new embedding provided
         if embedding is not None:
@@ -383,6 +573,11 @@ class InfinityDB:
         result = await asyncio.to_thread(self._metadata.get_by_id, neuron_id)
         if result is None:
             return False
+
+        # WAL: log before write
+        await asyncio.to_thread(
+            self._wal.append, WALOp.DELETE_NEURON, {"id": neuron_id}
+        )
 
         slot, meta = result
         vec_slot = meta.get("vec_slot", -1)
@@ -476,11 +671,23 @@ class InfinityDB:
         if await asyncio.to_thread(self._metadata.get_by_id, target_id) is None:
             msg = f"Target neuron not found: {target_id!r}"
             raise ValueError(msg)
+
+        eid = edge_id or str(uuid.uuid4())
+
+        # WAL: log before write
+        wal_payload: dict[str, Any] = {
+            "source_id": source_id, "target_id": target_id,
+            "edge_type": edge_type, "weight": weight, "edge_id": eid,
+        }
+        if metadata:
+            wal_payload["metadata"] = metadata
+        await asyncio.to_thread(self._wal.append, WALOp.ADD_SYNAPSE, wal_payload)
+
         return await asyncio.to_thread(
             self._graph.add_edge,
             source_id, target_id,
             edge_type=edge_type, weight=weight,
-            edge_id=edge_id, metadata=metadata,
+            edge_id=eid, metadata=metadata,
         )
 
     async def get_synapses(
@@ -513,6 +720,9 @@ class InfinityDB:
 
     async def delete_synapse(self, edge_id: str) -> bool:
         """Delete a synapse by edge ID."""
+        await asyncio.to_thread(
+            self._wal.append, WALOp.DELETE_SYNAPSE, {"edge_id": edge_id}
+        )
         return await asyncio.to_thread(self._graph.delete_edge, edge_id)
 
     async def update_synapse(self, edge_id: str, updates: dict[str, Any]) -> bool:
@@ -567,9 +777,20 @@ class InfinityDB:
         metadata: dict[str, Any] | None = None,
     ) -> str:
         """Create a new fiber (neuron collection). Returns fiber ID."""
+        fid = fiber_id or str(uuid.uuid4())
+        wal_payload: dict[str, Any] = {
+            "fiber_id": fid, "name": name, "fiber_type": fiber_type,
+            "description": description,
+        }
+        if neuron_ids:
+            wal_payload["neuron_ids"] = list(neuron_ids)
+        if metadata:
+            wal_payload["metadata"] = metadata
+        await asyncio.to_thread(self._wal.append, WALOp.ADD_FIBER, wal_payload)
+
         return await asyncio.to_thread(
             self._fibers.add_fiber, name,
-            fiber_id=fiber_id, fiber_type=fiber_type,
+            fiber_id=fid, fiber_type=fiber_type,
             description=description, neuron_ids=neuron_ids,
             metadata=metadata,
         )
@@ -611,6 +832,9 @@ class InfinityDB:
 
     async def delete_fiber(self, fiber_id: str) -> bool:
         """Delete a fiber."""
+        await asyncio.to_thread(
+            self._wal.append, WALOp.DELETE_FIBER, {"fiber_id": fiber_id}
+        )
         return await asyncio.to_thread(self._fibers.delete_fiber, fiber_id)
 
     # --- Stats ---
