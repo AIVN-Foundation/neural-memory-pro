@@ -5,13 +5,13 @@ from neural_memory_pro.plugin import NMProPlugin
 
 
 def test_version():
-    assert __version__ == "0.1.0"
+    assert __version__ == "0.2.0"
 
 
 def test_plugin_name():
     plugin = NMProPlugin()
     assert plugin.name == "neural-memory-pro"
-    assert plugin.version == "0.1.0"
+    assert plugin.version == "0.2.0"
 
 
 def test_retrieval_strategies():
