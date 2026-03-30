@@ -14,8 +14,8 @@ Tier assignment rules:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from neural_memory_pro.infinitydb.compressor import CompressionTier, VectorCompressor
@@ -36,7 +36,7 @@ class TierConfig:
     cool_after_days: int = DEFAULT_COOL_DAYS
     frozen_after_days: int = DEFAULT_FROZEN_DAYS
     min_access_for_active: int = 5
-    high_priority_threshold: int = 8   # priority >= this stays active
+    high_priority_threshold: int = 8  # priority >= this stays active
     auto_promote_on_access: bool = True
     auto_demote_enabled: bool = True
 
@@ -67,7 +67,7 @@ class TierStats:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class TierManager:
@@ -95,7 +95,6 @@ class TierManager:
         priority = meta.get("priority", 5)
         access_count = meta.get("access_count", 0)
         accessed_at = meta.get("accessed_at", "")
-        ephemeral = meta.get("ephemeral", False)
 
         # Crystal: ephemeral expired or priority 0
         if priority <= 0:
@@ -155,16 +154,12 @@ class TierManager:
             return ideal
         return None
 
-    def batch_classify(
-        self, neurons: list[dict[str, Any]]
-    ) -> dict[CompressionTier, list[str]]:
+    def batch_classify(self, neurons: list[dict[str, Any]]) -> dict[CompressionTier, list[str]]:
         """Classify multiple neurons into tiers.
 
         Returns dict mapping tier -> list of neuron IDs.
         """
-        result: dict[CompressionTier, list[str]] = {
-            tier: [] for tier in CompressionTier
-        }
+        result: dict[CompressionTier, list[str]] = {tier: [] for tier in CompressionTier}
         for meta in neurons:
             tier = self.classify_neuron(meta)
             nid = meta.get("id", "")
@@ -172,9 +167,7 @@ class TierManager:
                 result[tier].append(nid)
         return result
 
-    def compute_stats(
-        self, neurons: list[dict[str, Any]]
-    ) -> TierStats:
+    def compute_stats(self, neurons: list[dict[str, Any]]) -> TierStats:
         """Compute tier distribution stats for a set of neurons."""
         counts = {tier: 0 for tier in CompressionTier}
         for meta in neurons:
@@ -217,7 +210,9 @@ class TierManager:
             "actual_bytes": actual_bytes,
             "saved_bytes": saved,
             "compression_ratio": round(ratio, 2),
-            "savings_percent": round(saved / all_active_bytes * 100, 1) if all_active_bytes > 0 else 0,
+            "savings_percent": round(saved / all_active_bytes * 100, 1)
+            if all_active_bytes > 0
+            else 0,
         }
 
     def _days_since(self, iso_str: str) -> float:

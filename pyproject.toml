@@ -37,6 +37,7 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "PIE"]
+ignore = ["SIM115"]  # WAL requires long-lived file handles
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

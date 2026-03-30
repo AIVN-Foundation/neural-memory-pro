@@ -11,13 +11,15 @@ File layout per brain directory:
 
 from __future__ import annotations
 
+import re
 import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
 # Magic bytes: "INFDB" + version
 MAGIC = b"INFDB\x01"
-HEADER_FORMAT = "<6sIIIIQQ"  # magic(6) + version(4) + dims(4) + tier_config(4) + flags(4) + neuron_count(8) + synapse_count(8)
+# magic(6) + version(4) + dims(4) + tier_config(4) + flags(4) + neuron_count(8) + synapse_count(8)
+HEADER_FORMAT = "<6sIIIIQQ"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
 # File extensions
@@ -75,8 +77,6 @@ class InfinityHeader:
             synapse_count=s_count,
         )
 
-
-import re
 
 # Safe brain_id pattern: alphanumeric, dash, underscore, dot
 _SAFE_BRAIN_ID = re.compile(r"^[a-zA-Z0-9_\-\.]+$")

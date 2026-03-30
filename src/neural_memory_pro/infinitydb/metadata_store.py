@@ -11,7 +11,6 @@ In-memory: dict[neuron_id -> slot_index] for O(1) ID lookup,
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 

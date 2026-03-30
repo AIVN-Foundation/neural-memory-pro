@@ -60,7 +60,8 @@ class HNSWIndex:
             self._index.set_ef(self._ef_search)
             logger.debug(
                 "Loaded HNSW index: %d elements, max=%d",
-                self._current_count, self._max_elements,
+                self._current_count,
+                self._max_elements,
             )
         else:
             self._max_elements = max_elements
@@ -125,9 +126,7 @@ class HNSWIndex:
             return [], []
 
         k = min(k, self._current_count)
-        labels, distances = self._index.knn_query(
-            query.reshape(1, -1).astype(np.float32), k=k
-        )
+        labels, distances = self._index.knn_query(query.reshape(1, -1).astype(np.float32), k=k)
 
         slot_ids = labels[0].tolist()
         dists = distances[0].tolist()

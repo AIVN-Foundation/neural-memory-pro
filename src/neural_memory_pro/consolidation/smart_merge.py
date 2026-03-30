@@ -17,8 +17,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
-
 if TYPE_CHECKING:
     from neural_memory_pro.infinitydb.engine import InfinityDB
 
@@ -72,9 +70,7 @@ async def smart_merge(
 
     # 2. Build clusters via HNSW neighbor search
     # For each neuron, find its nearest neighbors and group similar ones
-    id_to_neuron: dict[str, dict[str, Any]] = {
-        n["id"]: n for n in neurons_with_vecs
-    }
+    id_to_neuron: dict[str, dict[str, Any]] = {n["id"]: n for n in neurons_with_vecs}
 
     clusters: dict[str, list[str]] = {}  # anchor_id -> [member_ids]
     assigned: set[str] = set()
@@ -114,7 +110,7 @@ async def smart_merge(
 
     # 3. Plan merge actions
     actions: list[MergeAction] = []
-    for anchor_id, member_ids in clusters.items():
+    for _anchor_id, member_ids in clusters.items():
         if len(actions) >= max_merges:
             break
 
@@ -142,10 +138,7 @@ async def smart_merge(
             content = m.get("content", "")
             if content and content not in anchor_content:
                 existing = set(anchor_content.split(". "))
-                new_sentences = [
-                    s for s in content.split(". ")
-                    if s.strip() and s not in existing
-                ]
+                new_sentences = [s for s in content.split(". ") if s.strip() and s not in existing]
                 if new_sentences:
                     merged_parts.append(". ".join(new_sentences))
 
@@ -181,9 +174,7 @@ async def smart_merge(
         executed = 0
         for action in actions:
             try:
-                await db.update_neuron(
-                    action.anchor_id, content=action.new_content
-                )
+                await db.update_neuron(action.anchor_id, content=action.new_content)
                 for mid in action.merged_ids:
                     if mid:
                         await db.update_neuron(mid, neuron_type="consolidated")
@@ -191,7 +182,8 @@ async def smart_merge(
             except Exception:
                 logger.warning(
                     "Failed to execute merge for %s",
-                    action.anchor_id, exc_info=True,
+                    action.anchor_id,
+                    exc_info=True,
                 )
         result["executed"] = executed
 

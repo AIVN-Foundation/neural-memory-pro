@@ -83,7 +83,7 @@ PRO_TOOL_SCHEMAS: list[dict[str, Any]] = [
             "properties": {
                 "similarity_threshold": {
                     "type": "number",
-                    "description": "Cosine similarity threshold for clustering (0.0-1.0). Default: 0.9",
+                    "description": "Cosine similarity threshold (0.0-1.0). Default: 0.9",
                     "default": 0.9,
                 },
                 "dry_run": {

@@ -46,7 +46,9 @@ class VectorStore:
         """Open or create the vector file."""
         if self._path.exists() and self._path.stat().st_size > 0:
             self._mmap = np.memmap(
-                str(self._path), dtype=np.float32, mode="r+",
+                str(self._path),
+                dtype=np.float32,
+                mode="r+",
             )
             total_elements = self._mmap.shape[0]
             self._capacity = total_elements // self._dimensions
@@ -54,7 +56,10 @@ class VectorStore:
             self._restore_state()
             logger.debug(
                 "Opened vector store: capacity=%d, dims=%d, count=%d, next_pos=%d",
-                self._capacity, self._dimensions, self._count, self._next_pos,
+                self._capacity,
+                self._dimensions,
+                self._count,
+                self._next_pos,
             )
         else:
             self._create_new(INITIAL_CAPACITY)
@@ -68,8 +73,8 @@ class VectorStore:
         occupied_indices = np.where(occupied)[0]
         if len(occupied_indices) > 0:
             self._next_pos = int(occupied_indices[-1]) + 1
-            self._count = int(np.sum(occupied[:self._next_pos]))
-            free_indices = np.where(~occupied[:self._next_pos])[0]
+            self._count = int(np.sum(occupied[: self._next_pos]))
+            free_indices = np.where(~occupied[: self._next_pos])[0]
             self._free_slots = set(free_indices.tolist())
         else:
             self._next_pos = 0
@@ -191,7 +196,8 @@ class VectorStore:
             return [], np.empty((0, self._dimensions), dtype=np.float32)
 
         slots = [
-            i for i in range(self._next_pos)
+            i
+            for i in range(self._next_pos)
             if i not in self._free_slots and not np.all(self._mmap[i] == 0)
         ]
 

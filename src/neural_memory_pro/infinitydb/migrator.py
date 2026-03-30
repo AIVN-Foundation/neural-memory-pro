@@ -32,10 +32,20 @@ MIGRATION_BATCH_SIZE = 1000
 _MAX_ERRORS = 20
 
 # Valid neuron types — unknown values fall back to "fact"
-_VALID_NEURON_TYPES = frozenset({
-    "fact", "decision", "error", "insight", "preference",
-    "workflow", "instruction", "concept", "entity", "pattern",
-})
+_VALID_NEURON_TYPES = frozenset(
+    {
+        "fact",
+        "decision",
+        "error",
+        "insight",
+        "preference",
+        "workflow",
+        "instruction",
+        "concept",
+        "entity",
+        "pattern",
+    }
+)
 
 # Priority bounds
 _MIN_PRIORITY = 1
@@ -46,8 +56,7 @@ _COUNTABLE_TABLES = frozenset({"neurons", "synapses", "fibers"})
 
 # Pre-built count queries (avoids f-string SQL — H1 fix)
 _COUNT_QUERIES: dict[str, str] = {
-    table: f"SELECT COUNT(*) FROM {table}"
-    for table in _COUNTABLE_TABLES
+    table: f"SELECT COUNT(*) FROM {table}" for table in _COUNTABLE_TABLES
 }
 
 
@@ -128,8 +137,10 @@ class SQLiteToInfinityMigrator:
         stats.elapsed_seconds = time.perf_counter() - t0
         logger.info(
             "Migration complete: %d neurons, %d synapses, %d fibers in %.2fs",
-            stats.neurons_migrated, stats.synapses_migrated,
-            stats.fibers_migrated, stats.elapsed_seconds,
+            stats.neurons_migrated,
+            stats.synapses_migrated,
+            stats.fibers_migrated,
+            stats.elapsed_seconds,
         )
         return stats
 
@@ -152,9 +163,7 @@ class SQLiteToInfinityMigrator:
         cursor = conn.cursor()
 
         # Check if neurons table exists
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='neurons'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='neurons'")
         if cursor.fetchone() is None:
             logger.info("No neurons table found, skipping neuron migration")
             return
@@ -208,15 +217,11 @@ class SQLiteToInfinityMigrator:
                             stats.neurons_migrated += 1
                         except Exception as ie:
                             stats.neurons_skipped += 1
-                            stats.add_error(
-                                f"Neuron {neuron.get('neuron_id', '?')}: {ie}"
-                            )
+                            stats.add_error(f"Neuron {neuron.get('neuron_id', '?')}: {ie}")
 
             migrated_in_phase += len(rows)
 
-    def _row_to_neuron(
-        self, row: dict[str, Any], columns: set[str]
-    ) -> dict[str, Any] | None:
+    def _row_to_neuron(self, row: dict[str, Any], columns: set[str]) -> dict[str, Any] | None:
         """Convert a SQLite row to a neuron dict for InfinityDB."""
         nid = row.get("id") or row.get("neuron_id")
         if not nid:
@@ -232,7 +237,11 @@ class SQLiteToInfinityMigrator:
 
         # M4 fix: clamp priority to valid range
         raw_priority = row.get("priority", 5)
-        priority = max(_MIN_PRIORITY, min(_MAX_PRIORITY, int(raw_priority))) if raw_priority is not None else 5
+        priority = (
+            max(_MIN_PRIORITY, min(_MAX_PRIORITY, int(raw_priority)))
+            if raw_priority is not None
+            else 5
+        )
 
         result: dict[str, Any] = {
             "neuron_id": str(nid),
@@ -266,9 +275,7 @@ class SQLiteToInfinityMigrator:
         """Migrate synapses table using keyset pagination."""
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='synapses'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='synapses'")
         if cursor.fetchone() is None:
             logger.info("No synapses table found, skipping synapse migration")
             return
@@ -276,7 +283,9 @@ class SQLiteToInfinityMigrator:
         # Determine ID column for keyset pagination
         cursor.execute("PRAGMA table_info(synapses)")
         syn_columns = {row["name"] for row in cursor.fetchall()}
-        id_col = "id" if "id" in syn_columns else "synapse_id" if "synapse_id" in syn_columns else None
+        id_col = (
+            "id" if "id" in syn_columns else "synapse_id" if "synapse_id" in syn_columns else None
+        )
 
         cursor.execute("SELECT COUNT(*) FROM synapses")
         total = cursor.fetchone()[0]
@@ -319,7 +328,8 @@ class SQLiteToInfinityMigrator:
                     # Note: we call graph store directly (not engine) to skip
                     # neuron existence validation during migration (H3 acknowledged)
                     self._target._graph.add_edge(
-                        str(source), str(target),
+                        str(source),
+                        str(target),
                         edge_type=syn_type,
                         weight=weight,
                         edge_id=str(edge_id) if edge_id else None,
@@ -335,23 +345,21 @@ class SQLiteToInfinityMigrator:
         """Migrate fibers table in batches."""
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='fibers'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='fibers'")
         if cursor.fetchone() is None:
             logger.info("No fibers table found, skipping fiber migration")
             return
 
         # Check if fiber_neurons join table exists (do this once, not per-fiber)
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='fiber_neurons'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='fiber_neurons'")
         has_fiber_neurons = cursor.fetchone() is not None
 
         # Determine ID column for keyset pagination
         cursor.execute("PRAGMA table_info(fibers)")
         fiber_columns = {row["name"] for row in cursor.fetchall()}
-        id_col = "id" if "id" in fiber_columns else "fiber_id" if "fiber_id" in fiber_columns else None
+        id_col = (
+            "id" if "id" in fiber_columns else "fiber_id" if "fiber_id" in fiber_columns else None
+        )
 
         cursor.execute("SELECT COUNT(*) FROM fibers")
         total = cursor.fetchone()[0]

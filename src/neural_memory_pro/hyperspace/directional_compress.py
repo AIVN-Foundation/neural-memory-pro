@@ -84,10 +84,7 @@ async def directional_compress(
         ref_score = 0.0
         if reference_embeddings:
             refs = reference_embeddings[:max_axes]
-            ref_sims = [
-                _cosine_sim(sent_arr, np.array(ref, dtype=np.float32))
-                for ref in refs
-            ]
+            ref_sims = [_cosine_sim(sent_arr, np.array(ref, dtype=np.float32)) for ref in refs]
             ref_score = max(ref_sims) if ref_sims else 0.0
 
         # Combined: primary axis + best reference axis
@@ -97,10 +94,7 @@ async def directional_compress(
     # Sort by importance, keep based on level
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    if level_lower == "summary":
-        keep = max(1, len(scored) * 2 // 3)  # Keep ~66%
-    else:  # essence
-        keep = max(1, len(scored) // 3)  # Keep ~33%
+    keep = max(1, len(scored) * 2 // 3) if level_lower == "summary" else max(1, len(scored) // 3)
 
     kept = scored[:keep]
     # Restore original order
@@ -128,8 +122,5 @@ def _split_sentences(text: str) -> list[str]:
 def _basic_compress(content: str, level: str) -> str:
     """Fallback compression without embeddings."""
     words = content.split()
-    if level == "summary":
-        keep = max(1, len(words) * 2 // 3)
-    else:  # essence
-        keep = max(1, len(words) // 3)
+    keep = max(1, len(words) * 2 // 3) if level == "summary" else max(1, len(words) // 3)
     return " ".join(words[:keep]) + ("..." if keep < len(words) else "")

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import struct
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import IntEnum
 from pathlib import Path
 from typing import Any
@@ -88,7 +88,7 @@ class WALEntry:
 
 
 def _utcnow() -> str:
-    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+    return datetime.now(UTC).replace(tzinfo=None).isoformat()
 
 
 class WriteAheadLog:

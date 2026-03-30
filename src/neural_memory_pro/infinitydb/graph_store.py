@@ -56,7 +56,9 @@ class GraphStore:
                             for edge in edges:
                                 tgt = edge.get("target_id", "")
                                 if not tgt:
-                                    logger.warning("Skipping edge with missing target_id in %s", self._path)
+                                    logger.warning(
+                                        "Skipping edge with missing target_id in %s", self._path
+                                    )
                                     continue
                                 self._reverse.setdefault(tgt, []).append(src)
                                 self._edge_count += 1
@@ -115,9 +117,7 @@ class GraphStore:
                     results.append(dict(edge))
         return results
 
-    def get_edges_between(
-        self, source_id: str, target_id: str
-    ) -> list[dict[str, Any]]:
+    def get_edges_between(self, source_id: str, target_id: str) -> list[dict[str, Any]]:
         """Get all edges between two specific neurons."""
         edges = self._adjacency.get(source_id, [])
         return [dict(e) for e in edges if e.get("target_id") == target_id]
@@ -173,8 +173,7 @@ class GraphStore:
                             rev.remove(src)
                             # Only remove if no more edges from src to target
                             has_more = any(
-                                e.get("target_id") == target
-                                for e in self._adjacency.get(src, [])
+                                e.get("target_id") == target for e in self._adjacency.get(src, [])
                             )
                             if has_more:
                                 rev.append(src)
@@ -209,8 +208,7 @@ class GraphStore:
                 if src in self._adjacency:
                     before = len(self._adjacency[src])
                     self._adjacency[src] = [
-                        e for e in self._adjacency[src]
-                        if e.get("target_id") != neuron_id
+                        e for e in self._adjacency[src] if e.get("target_id") != neuron_id
                     ]
                     removed = before - len(self._adjacency[src])
                     deleted += removed
@@ -245,9 +243,7 @@ class GraphStore:
         for depth in range(1, max_depth + 1):
             next_frontier: list[str] = []
             for node in frontier:
-                neighbors = self.get_neighbors(
-                    node, direction=direction, edge_type=edge_type
-                )
+                neighbors = self.get_neighbors(node, direction=direction, edge_type=edge_type)
                 for nb in neighbors:
                     if nb not in visited and len(result) < max_nodes:
                         visited.add(nb)

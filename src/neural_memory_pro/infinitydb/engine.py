@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +22,7 @@ from neural_memory_pro.infinitydb.graph_store import GraphStore
 from neural_memory_pro.infinitydb.hnsw_index import HNSWIndex
 from neural_memory_pro.infinitydb.metadata_store import MetadataStore
 from neural_memory_pro.infinitydb.query_planner import QueryExecutor, QueryPlan
-from neural_memory_pro.infinitydb.tier_manager import TierConfig, TierManager, TierStats
+from neural_memory_pro.infinitydb.tier_manager import TierConfig, TierManager
 from neural_memory_pro.infinitydb.vector_store import VectorStore
 from neural_memory_pro.infinitydb.wal import WALEntry, WALOp, WriteAheadLog
 
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 def _utcnow() -> str:
     """UTC now as ISO string (naive, no tzinfo for SQLite compat)."""
-    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+    return datetime.now(UTC).replace(tzinfo=None).isoformat()
 
 
 class InfinityDB:
@@ -129,8 +129,11 @@ class InfinityDB:
         self._is_open = True
         logger.info(
             "InfinityDB opened: brain=%s, neurons=%d, synapses=%d, fibers=%d, dims=%d",
-            self._brain_id, self._metadata.count, self._graph.edge_count,
-            self._fibers.count, self._dimensions,
+            self._brain_id,
+            self._metadata.count,
+            self._graph.edge_count,
+            self._fibers.count,
+            self._dimensions,
         )
 
     async def close(self) -> None:
@@ -197,7 +200,9 @@ class InfinityDB:
             except Exception as e:
                 logger.warning(
                     "WAL replay failed at seq=%d op=%s: %s",
-                    entry.seq, entry.op.name, e,
+                    entry.seq,
+                    entry.op.name,
+                    e,
                 )
         return replayed
 
@@ -254,8 +259,7 @@ class InfinityDB:
             if result is None:
                 return  # Neuron gone, skip
             slot, meta = result
-            updates = {k: v for k, v in p.get("updates", {}).items()
-                       if k in self._UPDATABLE_FIELDS}
+            updates = {k: v for k, v in p.get("updates", {}).items() if k in self._UPDATABLE_FIELDS}
             # Replay embedding update if present
             embedding = p.get("embedding")
             if embedding is not None:
@@ -277,7 +281,8 @@ class InfinityDB:
             if eid and self._graph.get_edge_by_id(eid) is not None:
                 return
             self._graph.add_edge(
-                p["source_id"], p["target_id"],
+                p["source_id"],
+                p["target_id"],
                 edge_type=p.get("edge_type", "related"),
                 weight=p.get("weight", 1.0),
                 edge_id=eid,
@@ -330,10 +335,16 @@ class InfinityDB:
 
         # WAL: log before write
         wal_payload: dict[str, Any] = {
-            "id": nid, "type": neuron_type, "content": content,
-            "priority": priority, "activation_level": activation_level,
-            "created_at": now, "updated_at": now, "accessed_at": now,
-            "access_count": 0, "ephemeral": ephemeral,
+            "id": nid,
+            "type": neuron_type,
+            "content": content,
+            "priority": priority,
+            "activation_level": activation_level,
+            "created_at": now,
+            "updated_at": now,
+            "accessed_at": now,
+            "access_count": 0,
+            "ephemeral": ephemeral,
             "tags": list(tags) if tags else [],
         }
         if embedding is not None:
@@ -355,7 +366,9 @@ class InfinityDB:
 
         # Build metadata with initial tier classification
         initial_meta: dict[str, Any] = {
-            "priority": priority, "access_count": 0, "accessed_at": now,
+            "priority": priority,
+            "access_count": 0,
+            "accessed_at": now,
         }
         tier = int(self._tier_manager.classify_neuron(initial_meta))
 
@@ -417,16 +430,16 @@ class InfinityDB:
                 "content": neuron.get("content", ""),
                 "priority": neuron.get("priority", 5),
                 "activation_level": neuron.get("activation_level", 1.0),
-                "created_at": now, "updated_at": now, "accessed_at": now,
+                "created_at": now,
+                "updated_at": now,
+                "accessed_at": now,
                 "access_count": 0,
                 "ephemeral": neuron.get("ephemeral", False),
                 "tags": list(neuron.get("tags", [])),
             }
             embedding = neuron.get("embedding")
             if embedding is not None:
-                wal_payload["embedding"] = np.asarray(
-                    embedding, dtype=np.float32
-                ).tolist()
+                wal_payload["embedding"] = np.asarray(embedding, dtype=np.float32).tolist()
             self._wal.append(WALOp.ADD_NEURON, wal_payload)
 
         try:
@@ -513,10 +526,20 @@ class InfinityDB:
         return [dict(meta) for _, meta in results]
 
     # Allowlist of fields that can be updated via update_neuron
-    _UPDATABLE_FIELDS = frozenset({
-        "content", "type", "priority", "activation_level", "tags",
-        "ephemeral", "accessed_at", "access_count", "updated_at", "tier",
-    })
+    _UPDATABLE_FIELDS = frozenset(
+        {
+            "content",
+            "type",
+            "priority",
+            "activation_level",
+            "tags",
+            "ephemeral",
+            "accessed_at",
+            "access_count",
+            "updated_at",
+            "tier",
+        }
+    )
 
     async def update_neuron(
         self,
@@ -557,7 +580,9 @@ class InfinityDB:
         if embedding is not None:
             wal_payload["embedding"] = np.asarray(embedding, dtype=np.float32).tolist()
         await asyncio.to_thread(
-            self._wal.append, WALOp.UPDATE_NEURON, wal_payload,
+            self._wal.append,
+            WALOp.UPDATE_NEURON,
+            wal_payload,
         )
 
         # Update vector if new embedding provided
@@ -588,9 +613,7 @@ class InfinityDB:
             return False
 
         # WAL: log before write
-        await asyncio.to_thread(
-            self._wal.append, WALOp.DELETE_NEURON, {"id": neuron_id}
-        )
+        await asyncio.to_thread(self._wal.append, WALOp.DELETE_NEURON, {"id": neuron_id})
 
         slot, meta = result
         vec_slot = meta.get("vec_slot", -1)
@@ -624,14 +647,16 @@ class InfinityDB:
         slot_ids, distances = await asyncio.to_thread(self._index.search, vec, k)
 
         results = []
-        for slot_id, dist in zip(slot_ids, distances):
+        for slot_id, dist in zip(slot_ids, distances, strict=False):
             meta = await asyncio.to_thread(self._metadata.get_by_slot, slot_id)
             if meta is not None:
-                results.append({
-                    **meta,
-                    "similarity": round(1.0 - dist, 4),  # cosine: dist = 1 - sim
-                    "distance": round(dist, 6),
-                })
+                results.append(
+                    {
+                        **meta,
+                        "similarity": round(1.0 - dist, 4),  # cosine: dist = 1 - sim
+                        "distance": round(dist, 6),
+                    }
+                )
 
         return results
 
@@ -653,11 +678,13 @@ class InfinityDB:
                 dist = float(all_distances[i][j])
                 meta = await asyncio.to_thread(self._metadata.get_by_slot, slot_id)
                 if meta is not None:
-                    results.append({
-                        **meta,
-                        "similarity": round(1.0 - dist, 4),
-                        "distance": round(dist, 6),
-                    })
+                    results.append(
+                        {
+                            **meta,
+                            "similarity": round(1.0 - dist, 4),
+                            "distance": round(dist, 6),
+                        }
+                    )
             batch_results.append(results)
 
         return batch_results
@@ -689,8 +716,11 @@ class InfinityDB:
 
         # WAL: log before write
         wal_payload: dict[str, Any] = {
-            "source_id": source_id, "target_id": target_id,
-            "edge_type": edge_type, "weight": weight, "edge_id": eid,
+            "source_id": source_id,
+            "target_id": target_id,
+            "edge_type": edge_type,
+            "weight": weight,
+            "edge_id": eid,
         }
         if metadata:
             wal_payload["metadata"] = metadata
@@ -698,9 +728,12 @@ class InfinityDB:
 
         return await asyncio.to_thread(
             self._graph.add_edge,
-            source_id, target_id,
-            edge_type=edge_type, weight=weight,
-            edge_id=eid, metadata=metadata,
+            source_id,
+            target_id,
+            edge_type=edge_type,
+            weight=weight,
+            edge_id=eid,
+            metadata=metadata,
         )
 
     async def get_synapses(
@@ -733,9 +766,7 @@ class InfinityDB:
 
     async def delete_synapse(self, edge_id: str) -> bool:
         """Delete a synapse by edge ID."""
-        await asyncio.to_thread(
-            self._wal.append, WALOp.DELETE_SYNAPSE, {"edge_id": edge_id}
-        )
+        await asyncio.to_thread(self._wal.append, WALOp.DELETE_SYNAPSE, {"edge_id": edge_id})
         return await asyncio.to_thread(self._graph.delete_edge, edge_id)
 
     async def update_synapse(self, edge_id: str, updates: dict[str, Any]) -> bool:
@@ -751,8 +782,10 @@ class InfinityDB:
     ) -> list[str]:
         """Get neighbor neuron IDs."""
         return await asyncio.to_thread(
-            self._graph.get_neighbors, neuron_id,
-            direction=direction, edge_type=edge_type,
+            self._graph.get_neighbors,
+            neuron_id,
+            direction=direction,
+            edge_type=edge_type,
         )
 
     async def bfs_traverse(
@@ -766,14 +799,15 @@ class InfinityDB:
     ) -> list[tuple[str, int]]:
         """BFS traversal from a neuron. Returns list of (neuron_id, depth)."""
         return await asyncio.to_thread(
-            self._graph.bfs, start_id,
-            max_depth=max_depth, direction=direction,
-            edge_type=edge_type, max_nodes=max_nodes,
+            self._graph.bfs,
+            start_id,
+            max_depth=max_depth,
+            direction=direction,
+            edge_type=edge_type,
+            max_nodes=max_nodes,
         )
 
-    async def get_subgraph(
-        self, neuron_ids: list[str]
-    ) -> list[dict[str, Any]]:
+    async def get_subgraph(self, neuron_ids: list[str]) -> list[dict[str, Any]]:
         """Get all edges within a set of neurons (induced subgraph)."""
         return await asyncio.to_thread(self._graph.get_subgraph, neuron_ids)
 
@@ -792,7 +826,9 @@ class InfinityDB:
         """Create a new fiber (neuron collection). Returns fiber ID."""
         fid = fiber_id or str(uuid.uuid4())
         wal_payload: dict[str, Any] = {
-            "fiber_id": fid, "name": name, "fiber_type": fiber_type,
+            "fiber_id": fid,
+            "name": name,
+            "fiber_type": fiber_type,
             "description": description,
         }
         if neuron_ids:
@@ -802,9 +838,12 @@ class InfinityDB:
         await asyncio.to_thread(self._wal.append, WALOp.ADD_FIBER, wal_payload)
 
         return await asyncio.to_thread(
-            self._fibers.add_fiber, name,
-            fiber_id=fid, fiber_type=fiber_type,
-            description=description, neuron_ids=neuron_ids,
+            self._fibers.add_fiber,
+            name,
+            fiber_id=fid,
+            fiber_type=fiber_type,
+            description=description,
+            neuron_ids=neuron_ids,
             metadata=metadata,
         )
 
@@ -822,32 +861,26 @@ class InfinityDB:
         """Find fibers matching filters."""
         return await asyncio.to_thread(
             self._fibers.find_fibers,
-            name_contains=name_contains, fiber_type=fiber_type, limit=limit,
+            name_contains=name_contains,
+            fiber_type=fiber_type,
+            limit=limit,
         )
 
     async def add_neuron_to_fiber(self, fiber_id: str, neuron_id: str) -> bool:
         """Add a neuron to a fiber."""
-        return await asyncio.to_thread(
-            self._fibers.add_neuron_to_fiber, fiber_id, neuron_id
-        )
+        return await asyncio.to_thread(self._fibers.add_neuron_to_fiber, fiber_id, neuron_id)
 
     async def remove_neuron_from_fiber(self, fiber_id: str, neuron_id: str) -> bool:
         """Remove a neuron from a fiber."""
-        return await asyncio.to_thread(
-            self._fibers.remove_neuron_from_fiber, fiber_id, neuron_id
-        )
+        return await asyncio.to_thread(self._fibers.remove_neuron_from_fiber, fiber_id, neuron_id)
 
     async def get_fibers_for_neuron(self, neuron_id: str) -> list[str]:
         """Get all fiber IDs containing a neuron."""
-        return await asyncio.to_thread(
-            self._fibers.get_fibers_for_neuron, neuron_id
-        )
+        return await asyncio.to_thread(self._fibers.get_fibers_for_neuron, neuron_id)
 
     async def delete_fiber(self, fiber_id: str) -> bool:
         """Delete a fiber."""
-        await asyncio.to_thread(
-            self._wal.append, WALOp.DELETE_FIBER, {"fiber_id": fiber_id}
-        )
+        await asyncio.to_thread(self._wal.append, WALOp.DELETE_FIBER, {"fiber_id": fiber_id})
         return await asyncio.to_thread(self._fibers.delete_fiber, fiber_id)
 
     # --- Stats ---
@@ -879,7 +912,8 @@ class InfinityDB:
         now = _utcnow()
         access_count = meta.get("access_count", 0) + 1
         await asyncio.to_thread(
-            self._metadata.update, slot,
+            self._metadata.update,
+            slot,
             {"accessed_at": now, "access_count": access_count},
         )
         meta["accessed_at"] = now
@@ -893,13 +927,13 @@ class InfinityDB:
 
         target = self._tier_manager.should_promote(meta, current_tier)
         if target is not None and target != current_tier:
-            await asyncio.to_thread(
-                self._metadata.update, slot, {"tier": int(target)}
-            )
+            await asyncio.to_thread(self._metadata.update, slot, {"tier": int(target)})
             meta["tier"] = int(target)
             logger.debug(
                 "Promoted neuron %s: %s → %s",
-                meta.get("id", "?"), current_tier.name, target.name,
+                meta.get("id", "?"),
+                current_tier.name,
+                target.name,
             )
 
     async def demote_sweep(self) -> dict[str, int]:
@@ -977,6 +1011,4 @@ class InfinityDB:
         limit: int = 5,
     ) -> list[dict[str, Any]]:
         """Suggest neurons by content prefix."""
-        return await asyncio.to_thread(
-            self._metadata.suggest, prefix, type_filter, limit
-        )
+        return await asyncio.to_thread(self._metadata.suggest, prefix, type_filter, limit)

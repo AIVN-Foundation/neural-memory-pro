@@ -18,10 +18,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from neural_memory.core.brain import Brain
+from neural_memory.core.fiber import Fiber
 from neural_memory.core.neuron import Neuron, NeuronState, NeuronType
 from neural_memory.core.synapse import Synapse, SynapseType
-from neural_memory.core.fiber import Fiber
-from neural_memory.core.brain import Brain
 from neural_memory.storage.base import NeuralStorage
 from neural_memory.utils.timeutils import utcnow
 
@@ -56,7 +56,8 @@ def _meta_to_neuron(meta: dict[str, Any]) -> Neuron:
         type=nt,
         content=meta.get("content", ""),
         metadata={
-            k: v for k, v in meta.items()
+            k: v
+            for k, v in meta.items()
             if k not in ("id", "type", "content", "created_at", "ephemeral", "content_hash")
         },
         content_hash=meta.get("content_hash", 0),
@@ -147,8 +148,10 @@ class InfinityDBStorage(NeuralStorage):
         """Open the InfinityDB storage."""
         brain_id = self._current_brain_id or "default"
         self._db = InfinityDB(
-            self._base_dir, brain_id=brain_id,
-            dimensions=self._dimensions, tier_config=self._tier_config,
+            self._base_dir,
+            brain_id=brain_id,
+            dimensions=self._dimensions,
+            tier_config=self._tier_config,
         )
         await self._db.open()
 
@@ -293,10 +296,13 @@ class InfinityDBStorage(NeuralStorage):
         return synapses
 
     async def update_synapse(self, synapse: Synapse) -> None:
-        await self.db.update_synapse(synapse.id, {
-            "type": synapse.type.value,
-            "weight": synapse.weight,
-        })
+        await self.db.update_synapse(
+            synapse.id,
+            {
+                "type": synapse.type.value,
+                "weight": synapse.weight,
+            },
+        )
 
     async def delete_synapse(self, synapse_id: str) -> bool:
         return await self.db.delete_synapse(synapse_id)
@@ -311,9 +317,7 @@ class InfinityDBStorage(NeuralStorage):
         min_weight: float | None = None,
     ) -> list[tuple[Neuron, Synapse]]:
         dir_map = {"out": "outgoing", "in": "incoming", "both": "both"}
-        edges = await self.db.get_synapses(
-            neuron_id, direction=dir_map.get(direction, "both")
-        )
+        edges = await self.db.get_synapses(neuron_id, direction=dir_map.get(direction, "both"))
 
         results: list[tuple[Neuron, Synapse]] = []
         for edge in edges:
@@ -324,7 +328,8 @@ class InfinityDBStorage(NeuralStorage):
                 continue
 
             neighbor_id = (
-                edge.get("target_id") if edge.get("source_id") == neuron_id
+                edge.get("target_id")
+                if edge.get("source_id") == neuron_id
                 else edge.get("source_id")
             )
             if not neighbor_id:
@@ -346,7 +351,9 @@ class InfinityDBStorage(NeuralStorage):
         # BFS to find path
         direction = "both" if bidirectional else "outgoing"
         traversal = await self.db.bfs_traverse(
-            source_id, max_depth=max_hops, direction=direction,
+            source_id,
+            max_depth=max_hops,
+            direction=direction,
         )
 
         # Check if target was reached
@@ -368,8 +375,11 @@ class InfinityDBStorage(NeuralStorage):
             if not path:
                 # No direct edge — return minimal path indication
                 dummy_synapse = Synapse(
-                    id="", source_id=source_id, target_id=target_id,
-                    type=SynapseType.RELATED, weight=0.0,
+                    id="",
+                    source_id=source_id,
+                    target_id=target_id,
+                    type=SynapseType.RELATED,
+                    weight=0.0,
                 )
                 path.append((tgt_neuron, dummy_synapse))
 
@@ -466,16 +476,19 @@ class InfinityDBStorage(NeuralStorage):
         all_neurons = await self.db.find_neurons(limit=50000)
         neurons_out: list[dict[str, Any]] = []
         for meta in all_neurons:
-            neurons_out.append({
-                "id": meta.get("id", ""),
-                "type": meta.get("type", "concept"),
-                "content": meta.get("content", ""),
-                "metadata": {
-                    k: v for k, v in meta.items()
-                    if k not in ("id", "type", "content", "created_at")
-                },
-                "created_at": meta.get("created_at", ""),
-            })
+            neurons_out.append(
+                {
+                    "id": meta.get("id", ""),
+                    "type": meta.get("type", "concept"),
+                    "content": meta.get("content", ""),
+                    "metadata": {
+                        k: v
+                        for k, v in meta.items()
+                        if k not in ("id", "type", "content", "created_at")
+                    },
+                    "created_at": meta.get("created_at", ""),
+                }
+            )
 
         # Export all synapses
         synapses_out: list[dict[str, Any]] = []
@@ -487,27 +500,31 @@ class InfinityDBStorage(NeuralStorage):
             exported_sources.add(nid)
             edges = await self.db.get_synapses(nid, direction="outgoing")
             for edge in edges:
-                synapses_out.append({
-                    "id": edge.get("id", ""),
-                    "source_id": edge.get("source_id", ""),
-                    "target_id": edge.get("target_id", ""),
-                    "type": edge.get("type", "related"),
-                    "weight": edge.get("weight", 1.0),
-                    "metadata": edge.get("metadata", {}),
-                })
+                synapses_out.append(
+                    {
+                        "id": edge.get("id", ""),
+                        "source_id": edge.get("source_id", ""),
+                        "target_id": edge.get("target_id", ""),
+                        "type": edge.get("type", "related"),
+                        "weight": edge.get("weight", 1.0),
+                        "metadata": edge.get("metadata", {}),
+                    }
+                )
 
         # Export all fibers
         fibers_out: list[dict[str, Any]] = []
         fiber_list = await self.db.find_fibers(limit=50000)
         for f in fiber_list:
-            fibers_out.append({
-                "id": f.get("id", ""),
-                "neuron_ids": f.get("neuron_ids", []),
-                "synapse_ids": f.get("synapse_ids", []),
-                "anchor_neuron_id": f.get("anchor_neuron_id", ""),
-                "summary": f.get("name", ""),
-                "metadata": f.get("metadata", {}),
-            })
+            fibers_out.append(
+                {
+                    "id": f.get("id", ""),
+                    "neuron_ids": f.get("neuron_ids", []),
+                    "synapse_ids": f.get("synapse_ids", []),
+                    "anchor_neuron_id": f.get("anchor_neuron_id", ""),
+                    "summary": f.get("name", ""),
+                    "metadata": f.get("metadata", {}),
+                }
+            )
 
         return BrainSnapshot(
             brain_id=brain_id,
@@ -591,6 +608,7 @@ class InfinityDBStorage(NeuralStorage):
         # Close and reopen with fresh state
         await self.db.close()
         import shutil
+
         brain_dir = self._base_dir / brain_id
         if brain_dir.exists():
             shutil.rmtree(brain_dir)

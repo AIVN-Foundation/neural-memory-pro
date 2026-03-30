@@ -122,9 +122,7 @@ class QueryExecutor:
 
         # Dimension 2: Graph proximity
         if plan.graph_seed_ids and plan.graph_weight > 0:
-            graph_ranked = self._graph_proximity(
-                plan.graph_seed_ids, plan.graph_max_depth
-            )
+            graph_ranked = self._graph_proximity(plan.graph_seed_ids, plan.graph_max_depth)
             if graph_ranked:
                 ranked_lists.append(graph_ranked)
                 weights.append(plan.graph_weight)
@@ -170,9 +168,7 @@ class QueryExecutor:
         # Apply offset and limit
         return results[plan.offset : plan.offset + plan.limit]
 
-    def _vector_search(
-        self, query_vector: NDArray[np.float32], k: int
-    ) -> list[str]:
+    def _vector_search(self, query_vector: NDArray[np.float32], k: int) -> list[str]:
         """Search by vector similarity, return ranked neuron IDs."""
         if self._index.count == 0:
             return []
@@ -186,17 +182,13 @@ class QueryExecutor:
                     result.append(nid)
         return result
 
-    def _graph_proximity(
-        self, seed_ids: list[str], max_depth: int
-    ) -> list[str]:
+    def _graph_proximity(self, seed_ids: list[str], max_depth: int) -> list[str]:
         """Rank by graph distance from seed neurons."""
         all_nodes: list[tuple[str, int]] = []
         seen: set[str] = set()
 
         for seed in seed_ids:
-            traversal = self._graph.bfs(
-                seed, max_depth=max_depth, direction="both", max_nodes=200
-            )
+            traversal = self._graph.bfs(seed, max_depth=max_depth, direction="both", max_nodes=200)
             for nid, depth in traversal:
                 if nid not in seen:
                     seen.add(nid)
@@ -219,11 +211,7 @@ class QueryExecutor:
             key=lambda x: x[1].get("priority", 0),
             reverse=True,
         )
-        return [
-            meta.get("id", "")
-            for _, meta in sorted_records[:limit]
-            if meta.get("id")
-        ]
+        return [meta.get("id", "") for _, meta in sorted_records[:limit] if meta.get("id")]
 
     def _metadata_only(self, plan: QueryPlan) -> list[dict[str, Any]]:
         """Fallback: pure metadata filter query."""

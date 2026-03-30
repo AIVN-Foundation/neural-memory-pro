@@ -25,20 +25,20 @@ logger = logging.getLogger(__name__)
 class CompressionTier(IntEnum):
     """Compression tiers ordered by quality (highest first)."""
 
-    ACTIVE = 0    # float32 — full precision
-    WARM = 1      # float16 — half precision
-    COOL = 2      # int8 — 8-bit quantized
-    FROZEN = 3    # binary — 1-bit per dimension
-    CRYSTAL = 4   # no vector — metadata only
+    ACTIVE = 0  # float32 — full precision
+    WARM = 1  # float16 — half precision
+    COOL = 2  # int8 — 8-bit quantized
+    FROZEN = 3  # binary — 1-bit per dimension
+    CRYSTAL = 4  # no vector — metadata only
 
 
 # Bytes per dimension for each tier
 BYTES_PER_DIM: dict[CompressionTier, float] = {
-    CompressionTier.ACTIVE: 4.0,     # float32
-    CompressionTier.WARM: 2.0,       # float16
-    CompressionTier.COOL: 1.0,       # int8
-    CompressionTier.FROZEN: 0.125,   # 1 bit
-    CompressionTier.CRYSTAL: 0.0,    # nothing
+    CompressionTier.ACTIVE: 4.0,  # float32
+    CompressionTier.WARM: 2.0,  # float16
+    CompressionTier.COOL: 1.0,  # int8
+    CompressionTier.FROZEN: 0.125,  # 1 bit
+    CompressionTier.CRYSTAL: 0.0,  # nothing
 }
 
 
@@ -175,8 +175,8 @@ class VectorCompressor:
         """
         bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
         # Trim to actual dimensions
-        bits = bits[:self._dimensions]
-        return (bits.astype(np.float32) * 2 - 1)
+        bits = bits[: self._dimensions]
+        return bits.astype(np.float32) * 2 - 1
 
     def estimate_size(self, tier: CompressionTier, count: int) -> int:
         """Estimate total bytes for N vectors at a given tier."""
