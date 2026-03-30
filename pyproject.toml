@@ -7,7 +7,7 @@ name = "neural-memory-pro"
 version = "0.2.0"
 description = "Pro extensions for Neural Memory — advanced retrieval, compression, and consolidation"
 readme = "README.md"
-license = { text = "Proprietary" }
+license = { text = "MIT" }
 requires-python = ">=3.11"
 authors = [{ name = "AIVN Foundation", email = "claude@theio.vn" }]
 dependencies = [
