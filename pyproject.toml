@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "neural-memory-pro"
-version = "0.2.0"
+version = "0.3.0"
 description = "Pro extensions for Neural Memory — advanced retrieval, compression, and consolidation"
 readme = "README.md"
 license = { text = "MIT" }

@@ -1,18 +1,29 @@
-"""Neural Memory Pro — Advanced features for Neural Memory.
+"""Neural Memory Pro — DEPRECATED.
 
-Auto-registers with neural-memory's plugin system on import.
+Pro features are now bundled in the main `neural-memory` package (v4.27+).
+This package is no longer needed.
 
-Key exports:
-- InfinityDB: Custom spatial database engine
-- InfinityDBStorage: NeuralStorage adapter for InfinityDB
-- cone_recall, smart_merge, directional_compress: Pro strategies
+Upgrade:
+    pip uninstall neural-memory-pro
+    pip install neural-memory
+    nmem pro activate YOUR_LICENSE_KEY
 """
 
 from __future__ import annotations
 
-__version__ = "0.2.0"
+import warnings
 
-# Public API — lazy imports to avoid circular deps at import time
+__version__ = "0.3.0"
+
+warnings.warn(
+    "neural-memory-pro is deprecated. Pro features are now bundled in "
+    "'neural-memory' (v4.27+). Uninstall this package: "
+    "pip uninstall neural-memory-pro",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# Keep backward compat — imports still work via the old plugin system
 from neural_memory_pro.infinitydb.engine import InfinityDB
 from neural_memory_pro.storage_adapter import InfinityDBStorage
 
